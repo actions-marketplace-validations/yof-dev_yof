@@ -4,6 +4,16 @@ All notable changes to `@yof/cli`. The format follows Keep a Changelog, and vers
 
 ## Unreleased
 
+## 0.2.0 (2026-11-02)
+
+- `yof attack [url]`: attacks your own app with your own test accounts: sign-in bypass, one account reading or changing another's records by id, members on admin routes, your assistant (hidden-instruction extraction, typed and hidden commands, its tools reading other accounts' records or admin data), open redirects, security headers, sign-in cookie flags and sign-in rate limits. Only proven hosts (localhost, a GitHub deployment of the repository, or the yof proof token), written consent per app, production only when turned on (full runs only in its window), no destructive requests, hard request and time budgets, every test record deleted. Findings are reported only when they show twice.
+- Stopping `yof attack` (Ctrl+C or SIGTERM) sends nothing new, deletes the run's test records within 10 seconds, says what was deleted or left, and exits 130 / 143. A second signal quits at once.
+- `--write-tests`: every confirmed finding becomes a regression test in Vitest, Jest, Playwright, pytest or `node --test`, from the recorded attack with the expectation inverted. No AI.
+- `--base <branch>`: pull-request runs attack only what the change can reach, and everything when shared code changes.
+- `yof check --json`: every finding also carries `why` (plain words) and `fixPrompt` (ready to paste into an AI assistant, masked value only), for the editor plugins.
+- Releases are published from a version tag by GitHub Actions with npm provenance (`.github/workflows/release.yml`).
+- GitHub Action `yof-dev/yof/attack` (`attack/action.yml`): runs on pull requests against the preview deployment, skips forks, leaves one comment; `/patch apply` on the pull request commits the regression tests to its branch through the yof App.
+
 ## 0.1.0
 
 First release.

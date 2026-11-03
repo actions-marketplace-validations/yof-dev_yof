@@ -1,0 +1,116 @@
+# yof attack as a GitHub Action (yof-dev/yof/attack): runs `yof attack` from @yof/cli against the PREVIEW build of a
+# pull request, with the test accounts you keep in your repository's secrets.
+#
+# Safe by design:
+#   - pull requests from forks are skipped: they get no secrets, and their code never runs against your accounts;
+#   - the target must be proven: a successful GitHub deployment of THIS repository for the pull request's commit
+#     (Vercel, Netlify and others report one), or your yof proof token on the host;
+#   - production only when your .yof/attack.json turns it on, and a full run only inside its window;
+#   - a pull-request run attacks only what the change can reach (it says "partial run: N attack groups"), and runs
+#     everything when shared code changes;
+#   - the result is ONE comment on the pull request (updated on each push). Comment `/patch apply` to have the yof App
+#     commit the regression tests to the pull request's branch.
+name: yof attack
+description: Attack your own app's preview build with your own test accounts, and turn each finding into a regression test.
+author: Mondaily
+branding:
+  icon: shield
+  color: green
+inputs:
+  target:
+    description: The address to test. Leave empty to use the preview deployment GitHub reports for this commit.
+    required: false
+    default: ""
+  config:
+    description: The attack config, relative to the repository root.
+    required: false
+    default: ".yof/attack.json"
+  mode:
+    description: full, or light (read-only).
+    required: false
+    default: "full"
+  scoped:
+    description: Set to "false" to attack everything on every pull request.
+    required: false
+    default: "true"
+  wait-seconds:
+    description: How long to wait for the preview deployment to succeed.
+    required: false
+    default: "300"
+  comment:
+    description: Set to "false" to skip the pull-request comment.
+    required: false
+    default: "true"
+  version:
+    description: The @yof/cli version to run.
+    required: false
+    default: "0.2.0"
+runs:
+  using: composite
+  steps:
+    - name: Skip forks
+      id: gate
+      shell: bash
+      env:
+        HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        THIS_REPO: ${{ github.repository }}
+        EVENT: ${{ github.event_name }}
+      run: |
+        if [ "$EVENT" = "pull_request" ] && [ "$HEAD_REPO" != "$THIS_REPO" ]; then
+          echo "yof attack: a pull request from a fork is not attacked (it has no access to your test accounts)."
+          echo "run=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "run=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Fetch the base branch
+      if: steps.gate.outputs.run == 'true' && github.event_name == 'pull_request' && inputs.scoped == 'true'
+      shell: bash
+      env:
+        BASE: ${{ github.event.pull_request.base.ref }}
+      run: git fetch --no-tags --depth=200 origin "$BASE"
+
+    - name: yof attack
+      if: steps.gate.outputs.run == 'true'
+      shell: bash
+      env:
+        YOF_TARGET: ${{ inputs.target }}
+        YOF_CONFIG: ${{ inputs.config }}
+        YOF_MODE: ${{ inputs.mode }}
+        YOF_SCOPED: ${{ inputs.scoped }}
+        YOF_WAIT: ${{ inputs.wait-seconds }}
+        YOF_COMMENT: ${{ inputs.comment }}
+        YOF_VERSION: ${{ inputs.version }}
+        YOF_HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        YOF_BASE: ${{ github.event.pull_request.base.ref }}
+        YOF_PR: ${{ github.event.pull_request.number }}
+        GITHUB_TOKEN: ${{ github.token }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        args=(attack)
+        if [ -n "$YOF_TARGET" ]; then args+=("$YOF_TARGET"); fi
+        args+=(--config "$YOF_CONFIG" --mode "$YOF_MODE")
+        if [ "$YOF_SCOPED" = "true" ] && [ -n "$YOF_BASE" ]; then args+=(--base "$YOF_BASE"); fi
+        if [ -n "$YOF_PR" ] && [ "$YOF_COMMENT" = "true" ]; then args+=(--comment yof-attack-comment.md); fi
+        if [ -n "$YOF_HOOK_URL" ]; then args+=(--upload); fi
+        # Wait for GitHub to report the preview deployment of this commit (when no target was given).
+        if [ -z "$YOF_TARGET" ]; then
+          end=$(( $(date +%s) + YOF_WAIT ))
+          until gh api "repos/$GITHUB_REPOSITORY/deployments?sha=$YOF_HEAD_SHA" --jq 'length' 2>/dev/null | grep -qv '^0$'; do
+            if [ "$(date +%s)" -ge "$end" ]; then echo "yof attack: no deployment of this commit yet, so there is nothing to test."; exit 0; fi
+            sleep 15
+          done
+        fi
+        set +e
+        npx --yes "@yof/cli@${YOF_VERSION}" "${args[@]}"
+        code=$?
+        set -e
+        if [ -f yof-attack-comment.md ]; then
+          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$YOF_PR/comments?per_page=100" --jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("<!-- yof-attack -->")))][0].id' 2>/dev/null)
+          if [ -n "$id" ] && [ "$id" != "null" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -F body=@yof-attack-comment.md > /dev/null
+          else
+            gh api --method POST "repos/$GITHUB_REPOSITORY/issues/$YOF_PR/comments" -F body=@yof-attack-comment.md > /dev/null
+          fi
+        fi
+        exit $code

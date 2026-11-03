@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: yof-dev/yof@v0.1.0
+      - uses: yof-dev/yof@v0.2.0
         with:
           path: .          # optional, default .
           offline: false   # optional, true = keys only, no registry lookups
@@ -124,11 +124,118 @@ If a registry does not answer, yof says so and claims nothing about that package
 
 **What it does not do**: it does not read git history, scan your running website, check your database rules, or review code logic. Those live in the yof app and Guard (below).
 
+## Attack your own app: `yof attack`
+
+`yof attack` tests YOUR OWN running app the way an attacker would, with two test accounts you create for it (A and B, plus an admin account if you have one). It reports only what it saw happen twice, and turns each finding into a regression test.
+
+```sh
+npx @yof/cli attack http://localhost:3000
+npx @yof/cli attack --mode light
+```
+
+What it tries:
+
+| Group | What it does |
+| --- | --- |
+| `auth` | Opens each signed-in route with no sign-in and with a broken token |
+| `tenant` | Account A creates a test record, account B reads it by id, finds it in a list and changes it |
+| `rbac` | Opens each admin route as a normal member |
+| `ai` | Your own assistant route: asks for its hidden instructions, types a command into a message, hides one in a record it reads, asks it for account B's record and for admin data |
+| `surface` | Open redirects, security headers, the sign-in cookie flags, and (when you turn it on) twelve wrong passwords in a row |
+
+Safe by design, and enforced in the code:
+
+- **Only a host you proved is yours.** `localhost`; a preview that GitHub reports as a successful deployment of this repository for the commit under test; or your live host with the proof token from your yof app (`YOF_VERIFY_TOKEN`, the same file, meta tag or DNS record the yof app uses).
+- **Written consent per app**, word for word in the config, naming the app.
+- **Never production** unless the config turns it on for this app. Then a light run (read-only) may go any time, and a full run only inside the window you set.
+- **No destructive requests.** GET and HEAD, plus POST only to the create, sign-in and assistant routes you name. PATCH, PUT and DELETE only touch records the run created itself, and those are deleted at the end, always.
+- **Hard budgets**: 300 requests and 110 seconds by default (at most 2,000 and 15 minutes), a steady pace, a 10 second timeout. When a budget runs out the run stops and says so, after deleting its test records.
+- **Stop it any time.** Ctrl+C (SIGINT) or SIGTERM, as an editor or CI sends on cancel: nothing new is sent, the test records the run created are deleted (within 10 seconds), it says what it deleted and anything it could not, and exits 130 or 143. A second Ctrl+C quits at once.
+- **Your test accounts stay in your CI secrets.** The config names environment variables, never a token or password, and nothing is stored by yof.
+
+The config lives at `.yof/attack.json`:
+
+```json
+{
+  "app": "shop.example.com",
+  "consent": "I own shop.example.com and allow yof attack to test it and its preview builds with my own test accounts.",
+  "accounts": {
+    "a": { "header": "Authorization", "env": "YOF_ATTACK_A" },
+    "b": { "header": "Authorization", "env": "YOF_ATTACK_B" },
+    "admin": { "header": "Authorization", "env": "YOF_ATTACK_ADMIN" }
+  },
+  "routes": ["/api/me", "/api/notes"],
+  "admin": ["/api/admin/users"],
+  "objects": [{
+    "create": { "path": "/api/notes", "body": "{\"title\":\"{{marker}}\"}" },
+    "idPath": "id",
+    "read": "/api/notes/{id}",
+    "list": "/api/notes",
+    "update": { "method": "PATCH", "path": "/api/notes/{id}", "body": "{\"title\":\"{{marker}}\"}" },
+    "delete": "/api/notes/{id}"
+  }],
+  "ai": [{ "path": "/api/chat", "body": "{\"message\":\"{{message}}\"}", "replyPath": "reply" }],
+  "surface": { "redirectPaths": ["/login"], "rateLimit": false },
+  "production": { "enabled": false, "window": "02:00-04:00" },
+  "budget": { "requests": 300, "seconds": 110, "perSecond": 8 }
+}
+```
+
+An account can also sign in with an email and password from your CI secrets: `{ "login": { "path": "/api/login", "body": "{\"email\":\"{{email}}\",\"password\":\"{{password}}\"}", "tokenPath": "token" }, "emailEnv": "YOF_ATTACK_A_EMAIL", "passwordEnv": "YOF_ATTACK_A_PASSWORD" }`. Without `tokenPath` the session cookie is used.
+
+### Regression tests
+
+With `--write-tests`, every confirmed finding becomes a test in your own test framework (Vitest, Jest, Playwright or pytest, detected from your repository; a `node --test` file otherwise). It replays the recorded attack and expects the opposite: the test fails while the attack still works and passes once it is fixed. No AI writes it. It skips itself unless `YOF_ATTACK_TARGET` is set, so your normal test run is unaffected.
+
+### On every pull request
+
+```yaml
+# .github/workflows/yof-attack.yml
+name: yof attack
+on: [pull_request]
+permissions:
+  contents: read
+  deployments: read
+  pull-requests: write
+  issues: write
+jobs:
+  attack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: yof-dev/yof/attack@v0.2.0
+        env:
+          YOF_ATTACK_A: ${{ secrets.YOF_ATTACK_A }}
+          YOF_ATTACK_B: ${{ secrets.YOF_ATTACK_B }}
+          YOF_ATTACK_ADMIN: ${{ secrets.YOF_ATTACK_ADMIN }}
+```
+
+It waits for the preview deployment of the pull request, then attacks only what the change can reach: the routes of the files it changes (Next.js app and pages routes, Hono and Express route files, and the routes that import a changed helper). The comment says "partial run: N attack groups". When shared code changes (middleware, auth, permissions, database access, dependencies) or the mapping is unsure, it runs everything and says why. Pull requests from forks are skipped.
+
+The comment lists what was found. Comment `/patch apply` on the pull request and the yof GitHub App commits the regression tests (and the security-header fix, when one applies) to the pull request's own branch. It works only for people with write access, never on a fork, never on the default branch, and never force-pushes.
+
+Set `YOF_HOOK_URL` (the deploy hook address from your yof app) and `yof attack --upload` sends the masked findings to your yof app, where they show with your other findings.
+
+### Options
+
+```
+yof attack [url]          The address to test (or YOF_ATTACK_TARGET)
+--config <file>           The attack config (default .yof/attack.json)
+--mode <full|light>       light = read-only
+--base <branch>           Pull request run: attack only what the change can reach
+--write-tests             Write a regression test for every confirmed finding
+--comment <file>          Write the pull-request comment to this file
+--upload                  Send the masked results to your yof app (YOF_HOOK_URL)
+--json                    Machine-readable output
+```
+
 ## Privacy
 
-yof runs on your machine. It reads files, matches patterns and prints the result. Your code, file names and keys never leave your computer.
+`yof check` runs on your machine. It reads files, matches patterns and prints the result. Your code, file names and keys never leave your computer. (`yof attack` sends requests only to the app you proved is yours, and to GitHub's API to read this repository's deployments.)
 
-The only network calls are package-registry lookups: package names (and exact pinned versions) go to `registry.npmjs.org`, `api.npmjs.org`, `pypi.org` and `api.osv.dev`, and to no other host. Skip them with `--offline`, and yof makes no network calls at all. There is no telemetry.
+The only network calls of `yof check` are package-registry lookups: package names (and exact pinned versions) go to `registry.npmjs.org`, `api.npmjs.org`, `pypi.org` and `api.osv.dev`, and to no other host. Skip them with `--offline`, and yof makes no network calls at all. There is no telemetry.
 
 ## Options
 
@@ -146,6 +253,8 @@ yof hook uninstall     Remove that hook
 ```
 
 Exit codes: `0` nothing to fix, `1` something to fix (per the profile), `2` usage or setup error.
+
+With `--json`, every finding also carries `why` (what can happen, in plain words) and `fixPrompt` (what to change, ready to paste into the AI assistant that wrote the code, with the masked value only). The yof editor plugins show these as they are.
 
 You can also use it as a library: `import { scanText, checkPackages, runCheck } from "@yof/cli"`.
 

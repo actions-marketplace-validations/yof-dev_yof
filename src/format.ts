@@ -1,6 +1,7 @@
 /** Output: short, plain text for people, or JSON for machines. Never a full secret, only the masked value. */
 import { visibleIn, type CheckReport } from "./check";
 import type { Severity } from "./secrets";
+import { keyFixPrompt, keyWords, packageFixPrompt } from "./words";
 
 export const CLOSING_LINE = "Want this on every pull request? https://yof.io";
 
@@ -56,7 +57,9 @@ export function formatJson(r: CheckReport, o: FormatOptions): string {
   return JSON.stringify({
     tool: "yof", version: o.version, mode: r.mode, profile: r.profile, offline: r.offline,
     filesScanned: r.filesScanned, filesSkipped: r.filesSkipped, truncated: r.truncated,
-    keys: r.keys, packages: r.packages, dependenciesChecked: r.dependenciesChecked, unknown: r.unknown,
+    keys: r.keys.map((k) => ({ ...k, why: keyWords(k.rule).why, fixPrompt: keyFixPrompt(k) })),
+    packages: r.packages.map((p) => ({ ...p, why: p.message, fixPrompt: packageFixPrompt(p) })),
+    dependenciesChecked: r.dependenciesChecked, unknown: r.unknown,
     counts: r.counts, failed: r.failed,
   }, null, 2);
 }

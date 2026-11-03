@@ -57,6 +57,13 @@ describe("yof check: exit codes and output", () => {
     expect(j).toMatchObject({ tool: "yof", mode: "full", profile: "balanced", failed: true, counts: { fix_now: 2 } });
     expect(j.keys[0]).toMatchObject({ file: "x.js", line: 1, rule: "secret.stripe_live", severity: "fix_now" });
     expect(j.packages[0]).toMatchObject({ file: "package.json", name: "reqeusts-helper", issue: "made_up" });
+    // The plain words and the prompt to paste into an AI assistant (the editor plugins show these): masked value only.
+    expect(j.keys[0].why).toMatch(/take payments/);
+    expect(j.keys[0].fixPrompt).toContain("Where: x.js, line 1.");
+    expect(j.keys[0].fixPrompt).toContain(j.keys[0].masked);
+    expect(j.keys[0].fixPrompt.includes(key)).toBe(false);
+    expect(j.packages[0].why).toBe(j.packages[0].message);
+    expect(j.packages[0].fixPrompt).toMatch(/Do not invent a package name/);
   });
 
   it("profiles decide what fails: a Stripe test key passes balanced, fails strict, is hidden by relaxed", async () => {

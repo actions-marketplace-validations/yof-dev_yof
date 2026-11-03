@@ -102,7 +102,9 @@ export function jwtPayload(token: string): Record<string, unknown> | null {
 type Verdict = { ruleId: string; meta?: Record<string, string> } | null;
 interface Pattern { ruleId: string | ((value: string, text: string, index: number) => Verdict); re: RegExp; group?: number }
 
-const JWT = /eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{10,}/g;
+// Starts only where a run of token characters starts: without the lookbehind every "eyJ" inside one long run
+// re-scanned to its end (quadratic; 30 KB of "eyJeyJ..." took 3.4 s, measured 2026-10-31).
+const JWT = /(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{10,}/g;
 
 const PATTERNS: Pattern[] = [
   {
@@ -167,17 +169,20 @@ const PATTERNS: Pattern[] = [
   },
   {
     // A build-time setting the browser receives whose NAME says secret. Value must look like a value, not a placeholder.
-    re: /\b((?:VITE|NEXT_PUBLIC|REACT_APP|EXPO_PUBLIC)_[A-Z0-9_]*(?:SECRET|PRIVATE|PASSWORD|SERVICE[_]ROLE)[A-Z0-9_]*)["'`]?\s*[:=]\s*["'`]([^"'`\s]{12,200})["'`]/g, group: 2,
+    re: /\b((?:VITE|NEXT_PUBLIC|REACT_APP|EXPO_PUBLIC)_[A-Z0-9_]{1,100})["'`]?\s*[:=]\s*["'`]([^"'`\s]{12,200})["'`]/g, group: 2,
     ruleId: (v, text, i) => {
       if (/^(?:your|xxx|changeme|placeholder|example|<|\$\{|process\.env|import\.meta)/i.test(v)) return null;
       const name = /([A-Z0-9_]+)["'`]?\s*[:=]\s*["'`][^"'`]*$/.exec(text.slice(Math.max(0, i - 120), i + 1))?.[1] ?? "";
+      // The "secret-sounding name" test lives here, not in the pattern: two overlapping [A-Z0-9_]* around SECRET made
+      // the pattern quadratic on "VITE_SECRETSECRET..." (measured 2026-10-31).
+      if (!/SECRET|PRIVATE|PASSWORD|SERVICE[_]ROLE/.test(name)) return null;
       return { ruleId: "secret.named_env", meta: name ? { name } : undefined };
     },
   },
 ];
 
 /** Every secret-looking run, for masking a snippet (broader than the rules on purpose). */
-const MASK_ANY = /(eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{10,}|\b(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9]{8,}|\bwhsec_[A-Za-z0-9]{8,}|\bgithub_pat_[A-Za-z0-9_]{12,}|\bgh[pousr]_[A-Za-z0-9]{12,}|\bxox[bpa]-[A-Za-z0-9-]{12,}|\bxapp-[A-Za-z0-9-]{12,}|\bhf_[A-Za-z0-9]{12,}|\bgsk_[A-Za-z0-9]{12,}|\br8_[A-Za-z0-9]{12,}|\bkey-[a-f0-9]{16,}|\bsk-[A-Za-z0-9_-]{16,}|\bre_[A-Za-z0-9_]{12,}|\bSG\.[A-Za-z0-9_.-]{20,}|\b(?:AKIA|ASIA)[0-9A-Z]{16}|\bAIza[0-9A-Za-z_-]{20,}|\b[a-f0-9]{32,}\b|[A-Za-z0-9/+]{40,})/g;
+const MASK_ANY = /((?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{10,}|\b(?:sk|rk|pk)_(?:live|test)_[A-Za-z0-9]{8,}|\bwhsec_[A-Za-z0-9]{8,}|\bgithub_pat_[A-Za-z0-9_]{12,}|\bgh[pousr]_[A-Za-z0-9]{12,}|\bxox[bpa]-[A-Za-z0-9-]{12,}|\bxapp-[A-Za-z0-9-]{12,}|\bhf_[A-Za-z0-9]{12,}|\bgsk_[A-Za-z0-9]{12,}|\br8_[A-Za-z0-9]{12,}|\bkey-[a-f0-9]{16,}|\bsk-[A-Za-z0-9_-]{16,}|\bre_[A-Za-z0-9_]{12,}|\bSG\.[A-Za-z0-9_.-]{20,}|\b(?:AKIA|ASIA)[0-9A-Z]{16}|\bAIza[0-9A-Za-z_-]{20,}|\b[a-f0-9]{32,}\b|[A-Za-z0-9/+]{40,})/g;
 
 export function maskAll(text: string): string {
   return text.replace(MASK_ANY, (m) => maskSecret(m));

@@ -1,0 +1,76 @@
+# Release for the public github.com/yof-dev/yof repository. Runs only when a version tag (v1.2.3) is pushed, never on a
+# pull request. In order:
+#   1. the tag, package.json, both Actions' default version and the CHANGELOG must agree (scripts/version.mjs --check);
+#   2. type check, tests and build (npm publish runs them again through prepublishOnly);
+#   3. the packed file list is printed and checked: no tests, no source maps of tests, no env files, LICENSE and README in;
+#   4. npm publish with provenance (the package page links this exact workflow run and commit);
+#   5. a GitHub release with that version's CHANGELOG notes, and the major tag (v0, v1, ...) moved to this commit, so
+#      `uses: yof-dev/yof@v0` follows the newest 0.x release while `@v0.2.0` stays fixed.
+#
+# Secrets: NPM_TOKEN only (an npm automation token for the "yof" account, which owns the @yof scope). The GitHub
+# release and the major tag use the workflow's own GITHUB_TOKEN.
+name: release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+", "v[0-9]+.[0-9]+.[0-9]+-*"]
+
+permissions:
+  contents: write   # the GitHub release and the major tag
+  id-token: write   # npm provenance
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - name: The tag matches every version in the repository
+        env:
+          TAG: ${{ github.ref_name }}
+        run: node scripts/version.mjs --check "${TAG#v}"
+      - run: git config --global user.name ci && git config --global user.email noreply@github.com
+      - run: npm install --no-audit --no-fund
+      - run: npm run check
+      - name: Check what goes into the package
+        run: |
+          npm pack --dry-run --json > pack.json
+          node -e '
+            const files = JSON.parse(require("fs").readFileSync("pack.json", "utf8"))[0].files.map((f) => f.path);
+            console.log(files.join("\n"));
+            const bad = files.filter((f) => /^(test|src|scripts|\.github)\//.test(f) || /(^|\/)\.env/.test(f) || /\.test\./.test(f));
+            const need = ["LICENSE", "README.md", "NOTICE", "CHANGELOG.md", "package.json", "dist/bin.js"].filter((f) => !files.includes(f));
+            if (bad.length || need.length) { console.error("Not publishing. Unexpected:", bad, "Missing:", need); process.exit(1); }
+          '
+          rm pack.json
+      - name: Publish to npm with provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [[ "$TAG" == *-* ]]; then npm publish --provenance --access public --tag next; else npm publish --provenance --access public; fi
+      - name: GitHub release and the major tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          v="${TAG#v}"
+          awk -v v="$v" '$0 ~ "^## "v"( |$)" {on=1; next} on && /^## / {exit} on {print}' CHANGELOG.md > notes.md
+          flags=()
+          if [[ "$TAG" == *-* ]]; then flags+=(--prerelease); fi
+          gh release create "$TAG" --title "$TAG" --notes-file notes.md "${flags[@]}"
+          if [[ "$TAG" != *-* ]]; then
+            major="v${v%%.*}"
+            git tag -f "$major" "$TAG"
+            git push -f origin "refs/tags/$major"
+          fi

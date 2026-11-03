@@ -1,7 +1,7 @@
 {
   "name": "@yof/cli",
-  "version": "0.1.0",
-  "description": "Catch leaked keys and made-up packages before they ship. Runs on your machine, rules only.",
+  "version": "0.2.0",
+  "description": "Catch leaked keys and made-up packages before they ship, and attack your own app with your own test accounts. Rules only.",
   "license": "Apache-2.0",
   "author": "Mondaily",
   "homepage": "https://yof.io",
