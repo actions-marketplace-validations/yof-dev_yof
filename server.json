@@ -22,7 +22,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://mcp.yof.io",
+      "url": "https://mcp.yof.io/mcp",
       "headers": [
         { "name": "Authorization", "description": "Bearer followed by the key the yof dashboard makes for this connection.", "isRequired": true, "isSecret": true }
       ]

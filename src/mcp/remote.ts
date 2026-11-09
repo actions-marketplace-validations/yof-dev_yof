@@ -2,9 +2,9 @@
  * The optional link to the person's yof.io account (yof_findings, yof_patch_status, yof_lessons, and yof_explain for a
  * rule the CLI does not know). Off unless YOF_API_KEY is set: the key is the one the yof dashboard put in this tool's
  * config ("Connect your AI builder"). What is sent: the tool name and its arguments (ids, a rule id), never code or
- * file contents. The server is the hosted yof MCP endpoint (YOF_MCP_URL, default https://mcp.yof.io).
+ * file contents. The server is the hosted yof MCP endpoint (YOF_MCP_URL, default https://mcp.yof.io/mcp).
  */
-export const DEFAULT_MCP_URL = "https://mcp.yof.io";
+export const DEFAULT_MCP_URL = "https://mcp.yof.io/mcp";
 export const REMOTE_TIMEOUT_MS = 15_000;
 export const KEY_SHAPE = /^yof_mcp_[A-Za-z0-9_-]{43}$/;
 

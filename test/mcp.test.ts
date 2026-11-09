@@ -182,7 +182,7 @@ describe("yof mcp: account tools", () => {
     const a = await callTool(ctxFor(root, { YOF_API_KEY: KEY, YOF_MCP_URL: "http://evil.example.com" }, f), "yof_findings", { limit: 5 });
     expect(a.isError).toBe(false);
     expect(sent).toHaveLength(1);
-    expect(sent[0]!.url).toBe("https://mcp.yof.io");   // plain http to another host is never used
+    expect(sent[0]!.url).toBe("https://mcp.yof.io/mcp");   // plain http to another host is never used
     expect(sent[0]!.headers.Authorization).toBe(`Bearer ${KEY}`);
     expect(JSON.parse(sent[0]!.body)).toEqual({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "yof_findings", arguments: { limit: 5 } } });
     expect(sent[0]!.body).not.toContain("secretSauce");
