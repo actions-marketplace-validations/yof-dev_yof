@@ -4,6 +4,8 @@ All notable changes to `@yof/cli`. The format follows Keep a Changelog, and vers
 
 ## Unreleased
 
+## 0.3.0 (2026-11-09)
+
 - findings.json, the format of Cloudflare's security-audit skill (MIT, credited in NOTICE): `yof check --format findings-json` writes it with yof's verdicts (confirmed or needs validation; public-by-design keys are hardening notes and are left out; nothing is rated above high), and `yof import <file> [path]` reads one strictly and checks each record's file and line against the folder, read only. `--format text|json` is the same as before.
 - `yof mcp [path]`: yof as a local MCP server over stdio, on the official MCP SDK (pinned). Tools: `yof_check`, `yof_check_diff`, `yof_explain`, `yof_fix_prompt`, `yof_verify`, and with `YOF_API_KEY` from the yof dashboard `yof_findings`, `yof_patch_status` and `yof_lessons`. Local scans never upload code. Every answer is labelled as untrusted data from the scanned project, secrets come back as a prefix plus REDACTED, and inputs are checked against strict schemas with limits on size, files and time. The SDK is bundled at build time, so installing the CLI still installs no other package, and only `yof mcp` loads it.
 - `integrations/claude-code`: a Claude Code plugin (the MCP server, a "check before done" skill and a hook that runs the diff check), and `integrations/claude-desktop`: an MCP bundle manifest.
