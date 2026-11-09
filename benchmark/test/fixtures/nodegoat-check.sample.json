@@ -1,0 +1,11 @@
+{
+  "tool": "yof",
+  "filesScanned": 120,
+  "truncated": false,
+  "keys": [],
+  "packages": [
+    { "file": "package.json", "name": "marked", "ecosystem": "npm", "issue": "vulnerable", "severity": "fix_now", "version": "0.3.5", "advisory": "GHSA-sample-5", "fixedIn": "4.0.10" }
+  ],
+  "dependenciesChecked": 30,
+  "unknown": [{ "name": "swig", "ecosystem": "npm" }]
+}

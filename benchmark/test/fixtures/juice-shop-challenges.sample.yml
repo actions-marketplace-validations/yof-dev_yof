@@ -1,0 +1,114 @@
+---
+# A hand-made sample in the shape of Juice Shop's data/static/challenges.yml (keys and names as the real list has them,
+# descriptions left out). Every key the mapping in targets.ts names is here, plus a few it does not name.
+-
+  name: 'Admin Section'
+  category: 'Broken Access Control'
+  tags:
+    - Good for Demos
+  description: 'Access the administration section of the store.'
+  difficulty: 2
+  hints:
+    - 'It is just slightly harder to find than the score board link.'
+  key: adminSectionChallenge
+  tutorial:
+    order: 8
+-
+  name: 'API-only XSS'
+  category: 'XSS'
+  difficulty: 3
+  key: restfulXssChallenge
+  disabledEnv:
+    - Docker
+    - Heroku
+-
+  name: 'Bjoern''s Favorite Pet'
+  category: 'Broken Authentication'
+  difficulty: 3
+  key: resetPasswordBjoernOwaspChallenge
+-
+  name: 'CSRF' # a trailing comment, as the real list has one
+  category: 'Broken Access Control'
+  key: csrfChallenge
+-
+  name: 'Error Handling'
+  category: 'Security Misconfiguration'
+  key: errorHandlingChallenge
+-
+  name: 'Vulnerable Library'
+  category: 'Vulnerable Components'
+  key: knownVulnerableComponentChallenge
+-
+  name: 'Unsigned JWT'
+  category: 'Vulnerable Components'
+  key: jwtUnsignedChallenge
+-
+  name: 'Forged Signed JWT'
+  category: 'Vulnerable Components'
+  key: jwtForgedChallenge
+  disabledEnv:
+    - Windows
+-
+  name: 'Legacy Typosquatting'
+  category: 'Vulnerable Components'
+  key: typosquattingNpmChallenge
+-
+  name: 'Frontend Typosquatting'
+  category: 'Vulnerable Components'
+  key: typosquattingAngularChallenge
+-
+  name: 'Supply Chain Attack'
+  category: 'Vulnerable Components'
+  key: supplyChainAttackChallenge
+-
+  name: 'View Basket'
+  category: 'Broken Access Control'
+  key: basketAccessChallenge
+-
+  name: 'Manipulate Basket'
+  category: 'Broken Access Control'
+  key: basketManipulateChallenge
+-
+  name: 'Forged Review'
+  category: 'Broken Access Control'
+  key: forgedReviewChallenge
+-
+  name: 'Allowlist Bypass'
+  category: 'Unvalidated Redirects'
+  key: redirectChallenge
+-
+  name: 'Password Strength'
+  category: 'Broken Authentication'
+  key: weakPasswordChallenge
+-
+  name: 'Chatbot Prompt Injection'
+  category: 'Injection'
+  key: chatbotPromptInjectionChallenge
+-
+  name: 'Greedy Chatbot Manipulation'
+  category: 'Injection'
+  key: chatbotGreedyInjectionChallenge
+-
+  name: 'System Prompt Extraction'
+  category: 'Injection'
+  key: systemPromptExtractionChallenge
+-
+  name: 'AI Debugging'
+  category: 'Broken Access Control'
+  key: aiDebuggingChallenge
+-
+  name: 'Leaked API Key'
+  category: 'Sensitive Data Exposure'
+  key: leakedApiKeyChallenge
+-
+  name: 'Exposed Credentials'
+  category: 'Sensitive Data Exposure'
+  key: exposedCredentialsChallenge
+-
+  name: 'Vulnerable Infrastructure'
+  category: 'Vulnerable Components'
+  key: vulnerableDockerImageChallenge
+-
+  name: 'Exposed Metrics'
+  category: 'Observability Failures'
+  key: exposedMetricsChallenge

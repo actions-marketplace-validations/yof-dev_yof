@@ -314,9 +314,9 @@ describe("the yof attack command", () => {
     expect(e3.join("\n")).toMatch(/Refused/);
     expect(await main(["attack", bad.url, "--mode", "loud"], io([], []))).toBe(2);
   }, 30_000);
-  it("the catalog: thirteen rules, unique ids under attack.*", () => {
-    expect(ATTACK_RULES).toHaveLength(13);
-    expect(new Set(ATTACK_RULES.map((r) => r.id)).size).toBe(13);
+  it("the catalog: twenty rules, unique ids under attack.*", () => {
+    expect(ATTACK_RULES).toHaveLength(20);
+    expect(new Set(ATTACK_RULES.map((r) => r.id)).size).toBe(20);
     for (const r of ATTACK_RULES) { expect(r.id).toMatch(/^attack\.[a-z_]+$/); expect(`${r.title}${r.why}`).not.toMatch(/—/); }
   });
 });

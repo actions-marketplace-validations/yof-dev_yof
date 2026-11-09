@@ -6,9 +6,10 @@ export {
   type Dependency, type Ecosystem, type PackageFinding, type PackageCheckResult, type PackageFetcher, type PackageIssue, type PackageSeverity,
 } from "./packages";
 export { parseYofYml, matchesIgnore, parseGitignore, matchesGitignore, PROFILES, type Profile, type YofConfig } from "./config";
-export { runCheck, visibleIn, failsIn, CheckError, type CheckReport, type CheckOptions, type KeyFinding, type DependencyFinding } from "./check";
-export { formatText, formatJson, CLOSING_LINE } from "./format";
-export { KEY_WORDS, keyWords, keyFixPrompt, packageFixPrompt, type RuleWords } from "./words";
+export { runCheck, visibleIn, failsIn, collapseKeys, primaryOrder, CheckError, type CheckReport, type CheckOptions, type KeyFinding, type DependencyFinding } from "./check";
+export { formatText, formatJson, filePrompts, CLOSING_LINE } from "./format";
+export { ACCEPTED_FILE, acceptFingerprint, acceptanceFor, parseAccepted, withEntry, withoutEntry, type AcceptedEntry, type Acceptance } from "./accepted";
+export { KEY_WORDS, keyWords, keyFixPrompt, packageFixPrompt, fileFixPrompt, type RuleWords } from "./words";
 export { installHook, uninstallHook, HOOK_SCRIPT, HOOK_MARKER } from "./hook";
 export { main, VERSION, HELP } from "./cli";
 // yof attack (0.2.0): tests your own app with your own test accounts.

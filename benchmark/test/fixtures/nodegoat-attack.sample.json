@@ -1,0 +1,15 @@
+{
+  "tool": "yof",
+  "command": "attack",
+  "version": "0.2.0",
+  "app": "localhost:4000",
+  "startedAt": "2026-11-09T10:03:00.000Z",
+  "finishedAt": "2026-11-09T10:03:20.000Z",
+  "stopped": null,
+  "requests": 41,
+  "groups": { "auth": "done", "tenant": "skipped", "rbac": "done", "ai": "skipped", "surface": "done" },
+  "findings": [
+    { "ruleId": "attack.missing_headers", "method": "GET", "route": "/", "as": "anon", "status": 302 }
+  ],
+  "notes": ["no_rate_limit_account"]
+}

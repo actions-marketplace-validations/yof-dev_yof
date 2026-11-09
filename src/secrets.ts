@@ -79,7 +79,17 @@ export function isPlaceholder(value: string): boolean {
   const body = value.slice(known ? known[0].length : 0);
   const chars = body.replace(/[^A-Za-z0-9]/g, "");
   if (chars.length > 0 && new Set(chars.toLowerCase()).size <= 2) return true;
-  return /x{5,}|your|example|placeholder|dummy|redacted|changeme|replace|sample|fake|insert|1234567890|abcdefghij/i.test(body);
+  return /x{5,}|your|example|placeholder|dummy|redacted|changeme|replace|sample|fake|invented|insert|1234567890|abcdefghij/i.test(body);
+}
+
+/**
+ * A private key header with no key after it is prose (a setup guide saying the PEM text starts with the header) or a
+ * stub (the header, a line break and four characters in a test), not a key. A real PEM has a base64 body of hundreds of characters:
+ * at least one run of 40 within the next 200 characters (escaped \n line breaks and string joins allowed).
+ */
+export function hasKeyBody(text: string, end: number): boolean {
+  const after = text.slice(end, end + 260).replace(/\\[nr]/g, "\n").replace(/["'`+,]/g, "");
+  return /[A-Za-z0-9+/]{40}/.test(after.slice(0, 200));
 }
 
 function lineCol(text: string, index: number): { line: number; column: number } {
@@ -217,6 +227,7 @@ export function scanText(text: string, opts: ScanOptions = {}): SecretMatch[] {
       const verdict = typeof p.ruleId === "string" ? { ruleId: p.ruleId } : p.ruleId(value, text, index);
       if (!verdict) continue;
       if (skipPlaceholders && verdict.ruleId !== "secret.private_key" && isPlaceholder(value)) continue;
+      if (skipPlaceholders && verdict.ruleId === "secret.private_key" && !hasKeyBody(text, index + value.length)) continue;
       const key = `${verdict.ruleId}|${value}`;
       if (seen.has(key)) continue;
       seen.add(key);

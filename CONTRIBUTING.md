@@ -6,7 +6,7 @@ Thanks for helping. Bug reports, new key rules, fixes and small improvements are
 
 - For anything bigger than a small fix, open an issue first so we can agree on the shape.
 - A new key rule needs a fixed, documented shape (a prefix and a length). Keys that look like any random string are not guessed at: a rule that raises false alarms does more harm than good.
-- Security problems go to security@mondaily.com, never to a public issue (see SECURITY.md).
+- Security problems go to security@yof.io, never to a public issue (see SECURITY.md).
 
 ## Working on it
 

@@ -3,12 +3,14 @@
 #   1. the tag, package.json, both Actions' default version and the CHANGELOG must agree (scripts/version.mjs --check);
 #   2. type check, tests and build (npm publish runs them again through prepublishOnly);
 #   3. the packed file list is printed and checked: no tests, no source maps of tests, no env files, LICENSE and README in;
-#   4. npm publish with provenance (the package page links this exact workflow run and commit);
+#   4. the version is staged on npm through Trusted Publishing (provenance included); a person approves it on npm;
 #   5. a GitHub release with that version's CHANGELOG notes, and the major tag (v0, v1, ...) moved to this commit, so
 #      `uses: yof-dev/yof@v0` follows the newest 0.x release while `@v0.2.0` stays fixed.
 #
-# Secrets: NPM_TOKEN only (an npm automation token for the "yof" account, which owns the @yof scope). The GitHub
-# release and the major tag use the workflow's own GITHUB_TOKEN.
+# Secrets: none for npm. Since 2026-11-03 @yof/cli uses npm Trusted Publishing (OIDC): npm trusts this repository's
+# release.yml, so no token is stored anywhere. The trusted publisher may only STAGE a version: it then waits under
+# npmjs.com > Staged Packages until the yof account approves it, and only then becomes public. The GitHub release and the
+# major tag use the workflow's own GITHUB_TOKEN.
 name: release
 
 on:
@@ -53,12 +55,13 @@ jobs:
             if (bad.length || need.length) { console.error("Not publishing. Unexpected:", bad, "Missing:", need); process.exit(1); }
           '
           rm pack.json
-      - name: Publish to npm with provenance
+      # Trusted Publishing needs npm 11.5.1 or newer (Node 22 ships npm 10).
+      - run: npm install -g npm@11
+      - name: Stage on npm (Trusted Publishing; a person approves it under Staged Packages)
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
-          if [[ "$TAG" == *-* ]]; then npm publish --provenance --access public --tag next; else npm publish --provenance --access public; fi
+          if [[ "$TAG" == *-* ]]; then npm stage publish --access public --tag next; else npm stage publish --access public; fi
       - name: GitHub release and the major tag
         env:
           GH_TOKEN: ${{ github.token }}

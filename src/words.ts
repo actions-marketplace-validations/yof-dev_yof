@@ -133,6 +133,24 @@ export function keyFixPrompt(k: Pick<KeyFinding, "rule" | "name" | "file" | "lin
   ].join("\n\n");
 }
 
+/**
+ * ONE prompt for every problem in one file (2026-11-07): "Fix these N problems in <file> together", numbered [1], [2],
+ * each with its rule and line, so the AI assistant edits the file once. The single prompts stay. Masked values only.
+ */
+export function fileFixPrompt(file: string, keys: readonly Pick<KeyFinding, "rule" | "name" | "line" | "masked">[], pkgs: readonly DependencyFinding[] = []): string {
+  const n = keys.length + pkgs.length;
+  const blocks = [
+    ...keys.map((k) => [`(rule ${k.rule}, line ${k.line}) ${k.name}.`, `The value starts like this (shortened on purpose): ${k.masked}`, `What to do: ${keyWords(k.rule).fix}`]),
+    ...pkgs.map((p) => [`(package.${p.issue}) ${p.name}: ${p.message}`, `What to do: ${PACKAGE_FIX[p.issue](p)}`]),
+  ].map((lines, i) => [`[${i + 1}] ${lines[0]}`, ...lines.slice(1)].join("\n"));
+  return [
+    `yof (a local check that runs on my machine) found ${n} ${n === 1 ? "problem" : "problems"} in ${file}.`,
+    `Fix ${n === 1 ? "this problem" : `these ${n} problems`} in ${file} together, so the file is edited once:`,
+    ...blocks,
+    "When you are done, explain in plain English what you changed for each number, in a few short sentences.",
+  ].join("\n\n");
+}
+
 /** The same for a dependency. */
 export function packageFixPrompt(f: DependencyFinding): string {
   return [

@@ -4,7 +4,7 @@
 
 Please report security problems privately. Do not open a public issue.
 
-- Email **security@mondaily.com**, or
+- Email **security@yof.io**, or
 - use GitHub's private vulnerability reporting on this repository (Security > Report a vulnerability).
 
 Tell us what you found, how to reproduce it, and what an attacker could do with it. We reply within three working days and keep you posted until it is fixed. We credit reporters who want to be credited.

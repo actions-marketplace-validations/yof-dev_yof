@@ -31,8 +31,10 @@ describe("nothing private in this repository", () => {
 
   // api.github.com: yof attack reads this repository's own deployments with the workflow's GITHUB_TOKEN (proof.ts).
   it("the only URLs in the source are the four package registries, GitHub's API and yof.io", () => {
-    // Plus one address that is never requested: the shape of a Slack webhook, named in the Slack rule's fix words.
-    const allowed = /^https:\/\/(?:registry\.npmjs\.org|api\.npmjs\.org|pypi\.org|api\.osv\.dev|api\.github\.com|yof\.io)(?:\/|$)|^https:\/\/hooks\.slack\.com\/services\/\.\.\.$/;
+    // Plus addresses that are never requested: the shape of a Slack webhook, named in the Slack rule's fix words, and the
+    // reserved .invalid addresses inside the assistant probes' message text (they never resolve; the probe image host is
+    // the constant PROBE_IMAGE_HOST, yof-canary.invalid).
+    const allowed = /^https:\/\/(?:registry\.npmjs\.org|api\.npmjs\.org|pypi\.org|api\.osv\.dev|api\.github\.com|yof\.io)(?:\/|$)|^https:\/\/hooks\.slack\.com\/services\/\.\.\.$|^https:\/\/example\.invalid$|^https:\/\/\$\{PROBE_IMAGE_HOST\}\//;
     for (const f of walk(join(ROOT, "src"))) {
       for (const m of readFileSync(f, "utf8").matchAll(/https?:\/\/[^\s"'`)\\]+/g)) expect(m[0], relative(ROOT, f)).toMatch(allowed);
     }
@@ -53,6 +55,9 @@ describe("nothing private in this repository", () => {
     expect(hit("private-subdomain", `engine.${"mondaily"}.com`)).toBe(true);
     expect(hit("email-address", ["someone", "gmail.com"].join("@"))).toBe(true);
     expect(hit("email-address", "security@mondaily.com")).toBe(false);
+    expect(hit("email-address", "security@yof.io")).toBe(false);
+    expect(hit("email-address", "privacy@yof.io")).toBe(false);
+    expect(hit("email-address", ["sales", "yof.io"].join("@"))).toBe(true);
     expect(hit("payment-key", ["sk", "_live_", "AbCdEfGhIjKl"].join(""))).toBe(true);
   });
 });

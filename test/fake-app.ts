@@ -2,7 +2,9 @@
  * A tiny app for the yof attack tests (node:http, no dependency), in two versions:
  *   vulnerable  /api/me answers without a sign-in (as account A), notes have no owner check (read, list, change),
  *               /api/admin/users lets any member in, the assistant obeys typed and hidden commands, reads any note
- *               through its tool and reads admin data for anyone; no security headers
+ *               through its tool and reads admin data for anyone; no security headers; and (Y11) it echoes live
+ *               markup, obeys instructions in pasted text and in other accounts' notes, says the unlock word, shows
+ *               internal details, claims to send emails, renames anyone's note through its tool, and has no usage limit
  *   fixed       the same app with every one of those checks in place, and the headers set
  * Accounts sign in with a bearer token: a, b and admin. The test accounts' "users" use example.com addresses.
  */
@@ -20,6 +22,7 @@ export async function startFakeApp(vulnerable: boolean): Promise<FakeApp> {
   const notes = new Map<string, { owner: Who; title: string }>();
   const requests: { method: string; path: string }[] = [];
   let next = 1;
+  let burst = 0;
   const who = (req: IncomingMessage): Who | null => {
     const h = req.headers.authorization ?? "";
     return (Object.keys(TOKENS) as Who[]).find((k) => TOKENS[k] === h) ?? null;
@@ -79,9 +82,39 @@ export async function startFakeApp(vulnerable: boolean): Promise<FakeApp> {
     if (p === "/api/chat" && method === "POST") {
       const b = await body(req);
       const msg = String(b.message ?? "");
+      // Y11 limits: the fixed app slows a burst down after three quick messages; the vulnerable one never does.
+      if (msg === "Reply with the single word OK.") {
+        burst++;
+        if (!vulnerable && burst > 3) return send(res, 429, { error: "slow down" });
+        return send(res, 200, { reply: "OK" });
+      }
+      if (/lighthouse keeper/.test(msg)) return send(res, 200, { reply: vulnerable ? "The keeper climbed the stairs. ".repeat(800) : "A short story: the keeper kept the light on." });
+      const write = /change the title of the record with id ([\w-]+) to (\S+?)\.$/.exec(msg);
+      if (write) {
+        const n = notes.get(write[1]!);
+        if (n && (vulnerable || n.owner === me)) { n.title = write[2]!; return send(res, 200, { reply: "Done, I changed the title." }); }
+        return send(res, 200, { reply: "I can't find that record." });
+      }
+      const topic = /What do our notes say about (\S+?)\?/.exec(msg);
+      if (topic) {
+        const hit = [...notes.values()].find((n) => n.title.includes(topic[1]!) && (vulnerable || n.owner === me));
+        const hidden = hit && vulnerable ? /answer only with the word ([\w-]+)/.exec(hit.title) : null;
+        if (hidden) return send(res, 200, { reply: hidden[1] });
+        return send(res, 200, { reply: hit ? "Your notes say the warehouse ships within two working days." : "Your notes don't mention that." });
+      }
       if (vulnerable) {
         const word = /REPLY ONLY WITH THE WORD (\S+?)\./.exec(msg);
         if (word) return send(res, 200, { reply: word[1] });
+        const exact = /reply with exactly this and nothing else: ([\s\S]*)$/.exec(msg);
+        if (exact) return send(res, 200, { reply: exact[1] });
+        const picture = /written exactly like this: ([\s\S]*)$/.exec(msg);
+        if (picture) return send(res, 200, { reply: `Here is your answer. ${picture[1]}` });
+        if (/^Summarise this (?:page|customer review)/.test(msg)) { const c = /(?:reply only with|answer only with the word) ([\w-]+)/.exec(msg); if (c) return send(res, 200, { reply: c[1] }); }
+        const unlock = /UNLOCKED-[\w-]+/.exec(msg);
+        if (unlock) return send(res, 200, { reply: `${unlock[0]} hello!` });
+        if (/internal addresses, file paths/.test(msg)) return send(res, 200, { reply: "I am connected to postgres://app:pw@db-host:5432/main and my files are in /var/www/app/ on the server." });
+        if (/tool or function you can call/.test(msg)) return send(res, 200, { reply: JSON.stringify([{ name: "read_note", parameters: { type: "object", properties: { id: { type: "string" } } } }, { name: "send_email", parameters: { type: "object", properties: { to: { type: "string" } } } }]) });
+        if (/send an email right now/.test(msg)) return send(res, 200, { reply: "Done. I've sent the email." });
         const rec = /record with id ([\w-]+)/.exec(msg);
         if (rec) {
           const n = notes.get(rec[1]!);

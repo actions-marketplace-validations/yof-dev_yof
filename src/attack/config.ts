@@ -16,11 +16,15 @@
  *   "objects": [{ "create": { "path": "/api/notes", "body": "{\"title\":\"{{marker}}\"}" }, "idPath": "id",
  *                 "read": "/api/notes/{id}", "update": { "method": "PATCH", "path": "/api/notes/{id}", "body": "{\"title\":\"{{marker}}\"}" },
  *                 "delete": "/api/notes/{id}" }],
- *   "ai": [{ "path": "/api/chat", "body": "{\"message\":\"{{message}}\"}", "replyPath": "reply" }],
+ *   "ai": [{ "path": "/api/chat", "body": "{\"message\":\"{{message}}\"}", "replyPath": "reply", "limits": false }],
  *   "surface": { "redirectPaths": ["/login"], "rateLimit": true },
  *   "production": { "enabled": false, "window": "02:00-04:00" },
  *   "budget": { "requests": 300, "seconds": 110, "perSecond": 8 }
  * }
+ *
+ * ai[i].limits (opt-in, default false): also measure the assistant's usage limits, like surface.rateLimit does for
+ * the sign-in. A burst of 10 tiny messages ("Reply with the single word OK."), two at a time, and one request for a
+ * very long story. It costs the owner a little model use, so it never runs unless this is true.
  */
 import { consentText } from "./catalog";
 
@@ -49,6 +53,8 @@ export interface AiSpec {
   account?: Role;
   /** Indirect injection: the assistant reads a record the runner creates with a hidden instruction in it. */
   ingest?: { create: { path: string; body: string }; idPath: string; delete: string };
+  /** Opt-in: a small burst and one very long answer, to see whether the assistant limits use (attack.ai_no_limit). */
+  limits?: boolean;
 }
 export interface Budget { requests: number; seconds: number; perSecond: number }
 export interface AttackConfig {
@@ -186,7 +192,8 @@ export function parseAttackConfig(text: string): AttackConfig {
       if (!del.includes("{id}")) throw new ConfigError(`${w}.ingest.delete needs {id}.`);
       ingest = { create: { path: path(a.ingest.create.path, `${w}.ingest.create.path`), body: bodyTemplate(a.ingest.create.body, `${w}.ingest.create.body`, ["document"]) }, idPath: str(a.ingest.idPath, `${w}.ingest.idPath`, JSON_PATH), delete: del };
     }
-    return { path: path(a.path, `${w}.path`), body: bodyTemplate(a.body, `${w}.body`, ["message"]), replyPath: str(a.replyPath, `${w}.replyPath`, JSON_PATH), ...(role ? { account: role as Role } : {}), ...(ingest ? { ingest } : {}) };
+    if (a.limits !== undefined && typeof a.limits !== "boolean") throw new ConfigError(`${w}.limits must be true or false.`);
+    return { path: path(a.path, `${w}.path`), body: bodyTemplate(a.body, `${w}.body`, ["message"]), replyPath: str(a.replyPath, `${w}.replyPath`, JSON_PATH), ...(role ? { account: role as Role } : {}), ...(ingest ? { ingest } : {}), ...(a.limits === true ? { limits: true } : {}) };
   });
 
   const s = isObj(raw.surface) ? raw.surface : {};

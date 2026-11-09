@@ -1,0 +1,26 @@
+{
+  "tool": "yof",
+  "command": "attack",
+  "version": "0.2.0",
+  "app": "localhost:3000",
+  "target": { "origin": "http://localhost:3000", "host": "localhost", "kind": "local", "proof": "local" },
+  "mode": "full",
+  "startedAt": "2026-11-09T10:00:00.000Z",
+  "finishedAt": "2026-11-09T10:01:12.000Z",
+  "stopped": null,
+  "cleanup": { "deleted": 2, "left": [] },
+  "requests": 188,
+  "budget": { "requests": 300, "seconds": 110, "perSecond": 8 },
+  "groups": { "auth": "done", "tenant": "done", "rbac": "done", "ai": "skipped", "surface": "done" },
+  "findings": [
+    { "ruleId": "attack.rbac_escalation", "group": "rbac", "severity": "fix_now", "title": "A normal member can open admin routes", "method": "GET", "route": "/api/Users", "as": "a", "status": 200, "evidence": "[sample]", "meta": {} },
+    { "ruleId": "attack.rbac_escalation", "group": "rbac", "severity": "fix_now", "title": "A normal member can open admin routes", "method": "GET", "route": "/api/Feedbacks", "as": "a", "status": 200, "evidence": "[sample]", "meta": {} },
+    { "ruleId": "attack.tenant_write", "group": "tenant", "severity": "fix_now", "title": "One user can change another user's records", "method": "PUT", "route": "/api/Addresss/{id}", "as": "b", "status": 200, "evidence": "[sample]", "meta": {} },
+    { "ruleId": "attack.no_rate_limit", "group": "surface", "severity": "fix_week", "title": "Your sign-in accepts unlimited wrong passwords", "method": "POST", "route": "/rest/user/login", "as": "a", "status": 401, "evidence": "[sample]", "meta": {} }
+  ],
+  "tests": [],
+  "notes": ["no_ingest:none"],
+  "unconfirmed": 1,
+  "exchanges": [],
+  "failed": true
+}

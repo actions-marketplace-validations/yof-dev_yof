@@ -1,0 +1,24 @@
+{
+  "tool": "yof",
+  "version": "0.2.0",
+  "mode": "full",
+  "profile": "balanced",
+  "offline": false,
+  "filesScanned": 812,
+  "filesSkipped": 40,
+  "truncated": false,
+  "keys": [
+    { "file": "lib/insecurity.ts", "line": 21, "column": 20, "rule": "secret.private_key", "name": "Private key", "severity": "fix_now", "masked": "[masked]" }
+  ],
+  "packages": [
+    { "file": "package.json", "name": "express-jwt", "ecosystem": "npm", "issue": "vulnerable", "severity": "fix_now", "version": "0.1.3", "advisory": "GHSA-sample-1", "fixedIn": "6.0.0" },
+    { "file": "package.json", "name": "jsonwebtoken", "ecosystem": "npm", "issue": "vulnerable", "severity": "fix_now", "version": "0.4.0", "advisory": "GHSA-sample-2", "fixedIn": "4.2.2" },
+    { "file": "package.json", "name": "sanitize-html", "ecosystem": "npm", "issue": "vulnerable", "severity": "fix_week", "version": "1.4.2", "advisory": "GHSA-sample-3", "fixedIn": "2.0.0" },
+    { "file": "package.json", "name": "unzipper", "ecosystem": "npm", "issue": "vulnerable", "severity": "fix_now", "version": "0.9.15", "advisory": "GHSA-sample-4", "fixedIn": "0.10.11" }
+  ],
+  "dependenciesChecked": 160,
+  "unknown": [],
+  "counts": {},
+  "acceptedCount": 0,
+  "failed": true
+}

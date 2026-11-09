@@ -11,7 +11,7 @@ export interface LeakRule { id: string; re: RegExp; allow?: (match: string) => b
 const repeated = (m: string) => { const tail = m.replace(/^[a-z_]+_/i, ""); return tail.length > 0 && new Set(tail).size === 1; };
 const ALLOWED_IPS = /^(127\.0\.0\.1|0\.0\.0\.0|192\.0\.2\.\d+|198\.51\.100\.\d+|203\.0\.113\.\d+)$/;
 const PUBLIC_HOSTS = new Set(["api.mondaily.com", "www.mondaily.com", "app.mondaily.com", "mondaily.com"]);
-const PUBLIC_EMAILS = new Set(["security@mondaily.com", "support@mondaily.com"]);
+const PUBLIC_EMAILS = new Set(["security@mondaily.com", "support@mondaily.com", "support@yof.io", "security@yof.io", "privacy@yof.io"]);
 
 export const LEAK_RULES: LeakRule[] = [
   { id: "product-api-key", re: /md_live_[0-9a-f]{32}/g, allow: repeated },
@@ -31,7 +31,8 @@ export const LEAK_RULES: LeakRule[] = [
   { id: "email-address", re: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, allow: (m) => PUBLIC_EMAILS.has(m.toLowerCase()) || /@example\.(?:com|org|net)$/i.test(m) || /^noreply@github\.com$/i.test(m) },
   { id: "server-secret-name", re: /\b(?:SUPABASE_SERVICE[A-Z_]*|SERVICE_ROLE[A-Z_]*|SOVEREIGN_[A-Z_]+|CRON_SECRET|STRIPE_SECRET[A-Z_]*|DATABASE_URL)\b/g },
   { id: "private-package", re: /@mondaily\//g },
-  { id: "engine-internals", re: /\b(?:agent-turn|team-turn|ALWAYS_APPROVE_TOOLS|autoApproves|askPromptBlocks|system prompt|You are sōtem)\b/gi },
+  // "(?! extraction)": a public OWASP Juice Shop challenge title, named in the yof benchmark results (oss/yof/benchmark).
+  { id: "engine-internals", re: /\b(?:agent-turn|team-turn|ALWAYS_APPROVE_TOOLS|autoApproves|askPromptBlocks|system prompt(?! extraction)|You are sōtem)\b/gi },
 ];
 
 export interface LeakFinding { file: string; rule: string; match: string }

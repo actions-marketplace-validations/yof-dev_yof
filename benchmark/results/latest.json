@@ -1,0 +1,1125 @@
+{
+  "schema": 1,
+  "status": "done",
+  "run": {
+    "id": "42529465073",
+    "url": "https://yof.io/benchmark",
+    "commit": "dbb39672a84f2c9667a1be15604b2558a13d1b7c",
+    "yofVersion": "0.2.0",
+    "startedAt": "2026-11-08T22:17:41Z",
+    "finishedAt": "2026-11-08T22:18:43Z",
+    "runner": "ubuntu-latest"
+  },
+  "targets": [
+    {
+      "id": "juice-shop",
+      "name": "OWASP Juice Shop",
+      "repo": "https://github.com/juice-shop/juice-shop",
+      "tag": "v20.3.0",
+      "commit": "f189f521266f42c6bd05884468292000cee852ed",
+      "run": "The project's official Docker image of the same release, pinned by digest, on 127.0.0.1:3000 inside the runner.",
+      "image": {
+        "ref": "bkimminich/juice-shop:v20.3.0",
+        "digest": "sha256:cea5a4af4aacee498c491491af0408934ec81d004035c0a02ef3e54395e3bf27"
+      },
+      "list": {
+        "file": "data/static/challenges.yml",
+        "label": "challenges",
+        "items": 116
+      },
+      "ran": true,
+      "error": null,
+      "check": {
+        "filesScanned": 663,
+        "dependenciesChecked": 167,
+        "registryUnanswered": 0,
+        "truncated": false
+      },
+      "attack": {
+        "requests": 64,
+        "seconds": 8,
+        "groups": {
+          "auth": "done",
+          "tenant": "done",
+          "rbac": "done",
+          "ai": "skipped",
+          "surface": "done"
+        },
+        "stopped": null,
+        "notes": [
+          "cleanup_failed"
+        ]
+      },
+      "solvedDuringRun": [
+        "errorHandlingChallenge"
+      ],
+      "counts": {
+        "items": 116,
+        "found": 5,
+        "foundSame": 1,
+        "foundRoot": 4,
+        "missed": 7,
+        "notTested": 81,
+        "notAvailable": 23,
+        "extra": 6,
+        "falsePositives": 2,
+        "realNotListed": 4,
+        "toReview": 0
+      },
+      "items": [
+        {
+          "key": "passwordHashLeakChallenge",
+          "name": "Password Hash Leak",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "restfulXssChallenge",
+          "name": "API-only XSS",
+          "category": "XSS",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "accessLogDisclosureChallenge",
+          "name": "Access Log",
+          "category": "Observability Failures",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "registerAdminChallenge",
+          "name": "Admin Registration",
+          "category": "Improper Input Validation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "adminSectionChallenge",
+          "name": "Admin Section",
+          "category": "Broken Access Control",
+          "status": "found",
+          "relation": "root",
+          "by": [
+            "attack.rbac_escalation GET /api/Users"
+          ],
+          "note": "The administration page is hidden only in the browser. The user list it shows comes from /api/Users, which any signed-in member can read."
+        },
+        {
+          "key": "fileWriteChallenge",
+          "name": "Arbitrary File Write",
+          "category": "Vulnerable Components",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "resetPasswordBjoernOwaspChallenge",
+          "name": "Bjoern's Favorite Pet",
+          "category": "Broken Authentication",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "tokenSaleChallenge",
+          "name": "Blockchain Hype",
+          "category": "Security through Obscurity",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "nftUnlockChallenge",
+          "name": "NFT Takeover",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "nftMintChallenge",
+          "name": "Mint the Honey Pot",
+          "category": "Improper Input Validation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "web3WalletChallenge",
+          "name": "Wallet Depletion",
+          "category": "Miscellaneous",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "web3SandboxChallenge",
+          "name": "Web3 Sandbox",
+          "category": "Broken Access Control",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "rceChallenge",
+          "name": "Blocked RCE DoS",
+          "category": "Insecure Deserialization",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "captchaBypassChallenge",
+          "name": "CAPTCHA Bypass",
+          "category": "Broken Anti Automation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "changePasswordBenderChallenge",
+          "name": "Change Bender's Password",
+          "category": "Broken Authentication",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "christmasSpecialChallenge",
+          "name": "Christmas Special",
+          "category": "Injection",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "usernameXssChallenge",
+          "name": "CSP Bypass",
+          "category": "XSS",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "persistedXssUserChallenge",
+          "name": "Client-side XSS Protection",
+          "category": "XSS",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "directoryListingChallenge",
+          "name": "Confidential Document",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "localXssChallenge",
+          "name": "DOM XSS",
+          "category": "XSS",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "dbSchemaChallenge",
+          "name": "Database Schema",
+          "category": "Injection",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "deprecatedInterfaceChallenge",
+          "name": "Deprecated Interface",
+          "category": "Security Misconfiguration",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "easterEggLevelOneChallenge",
+          "name": "Easter Egg",
+          "category": "Broken Access Control",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "emailLeakChallenge",
+          "name": "Email Leak",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "emptyUserRegistration",
+          "name": "Empty User Registration",
+          "category": "Improper Input Validation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "ephemeralAccountantChallenge",
+          "name": "Ephemeral Accountant",
+          "category": "Injection",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "errorHandlingChallenge",
+          "name": "Error Handling",
+          "category": "Security Misconfiguration",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "manipulateClockChallenge",
+          "name": "Expired Coupon",
+          "category": "Improper Input Validation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "extraLanguageChallenge",
+          "name": "Extra Language",
+          "category": "Broken Anti Automation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "feedbackChallenge",
+          "name": "Five-Star Feedback",
+          "category": "Broken Access Control",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "forgedCouponChallenge",
+          "name": "Forged Coupon",
+          "category": "Cryptographic Issues",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "forgedFeedbackChallenge",
+          "name": "Forged Feedback",
+          "category": "Broken Access Control",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "forgedReviewChallenge",
+          "name": "Forged Review",
+          "category": "Broken Access Control",
+          "status": "missed",
+          "relation": "same",
+          "note": "Reviews are changed with the review id in the request body. yof's tenant test needs the id in the address, so it cannot be configured for reviews."
+        },
+        {
+          "key": "jwtForgedChallenge",
+          "name": "Forged Signed JWT",
+          "category": "Vulnerable Components",
+          "status": "found",
+          "relation": "root",
+          "by": [
+            "package.vulnerable package.json express-jwt@0.1.3",
+            "package.vulnerable package.json jsonwebtoken@0.4.0"
+          ],
+          "note": "The forged token works because the pinned jsonwebtoken 0.4.0 accepts a token signed with the public key as an HMAC secret, the advisory published for versions before 4.2.2."
+        },
+        {
+          "key": "forgottenDevBackupChallenge",
+          "name": "Forgotten Developer Backup",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "forgottenBackupChallenge",
+          "name": "Forgotten Sales Backup",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "typosquattingAngularChallenge",
+          "name": "Frontend Typosquatting",
+          "category": "Vulnerable Components",
+          "status": "missed",
+          "relation": "same",
+          "note": "yof flags a lookalike only when the name is one or two letters from a package on its bundled popular list. ngx-cookie, the package it imitates, is not on that list."
+        },
+        {
+          "key": "ghostLoginChallenge",
+          "name": "GDPR Data Erasure",
+          "category": "Broken Authentication",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "dataExportChallenge",
+          "name": "GDPR Data Theft",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "httpHeaderXssChallenge",
+          "name": "HTTP-Header XSS",
+          "category": "XSS",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "continueCodeChallenge",
+          "name": "Imaginary Challenge",
+          "category": "Cryptographic Issues",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "dlpPasswordSprayingChallenge",
+          "name": "Leaked Access Logs",
+          "category": "Observability Failures",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "dlpPastebinDataLeakChallenge",
+          "name": "Leaked Unsafe Product",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "typosquattingNpmChallenge",
+          "name": "Legacy Typosquatting",
+          "category": "Vulnerable Components",
+          "status": "missed",
+          "relation": "same",
+          "note": "The package is named only in ftp/package.json.bak, a backup file. yof reads package.json, requirements files and pyproject.toml, not backups."
+        },
+        {
+          "key": "loginAdminChallenge",
+          "name": "Login Admin",
+          "category": "Injection",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "loginAmyChallenge",
+          "name": "Login Amy",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "loginBenderChallenge",
+          "name": "Login Bender",
+          "category": "Injection",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "oauthUserPasswordChallenge",
+          "name": "Login Bjoern",
+          "category": "Broken Authentication",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "loginJimChallenge",
+          "name": "Login Jim",
+          "category": "Injection",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "loginRapperChallenge",
+          "name": "Login MC SafeSearch",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "loginSupportChallenge",
+          "name": "Login Support Team",
+          "category": "Security Misconfiguration",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "basketManipulateChallenge",
+          "name": "Manipulate Basket",
+          "category": "Broken Access Control",
+          "status": "missed",
+          "relation": "same",
+          "note": "The same limit as View Basket: yof's tenant test needs a record with a text field it can mark, and basket items have none."
+        },
+        {
+          "key": "misplacedSignatureFileChallenge",
+          "name": "Misplaced Signature File",
+          "category": "Observability Failures",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "timingAttackChallenge",
+          "name": "Multiple Likes",
+          "category": "Broken Anti Automation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "easterEggLevelTwoChallenge",
+          "name": "Nested Easter Egg",
+          "category": "Cryptographic Issues",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "noSqlCommandChallenge",
+          "name": "NoSQL DoS",
+          "category": "Injection",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "noSqlOrdersChallenge",
+          "name": "NoSQL Exfiltration",
+          "category": "Injection",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "noSqlReviewsChallenge",
+          "name": "NoSQL Manipulation",
+          "category": "Injection",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "redirectCryptoCurrencyChallenge",
+          "name": "Outdated Allowlist",
+          "category": "Unvalidated Redirects",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "weakPasswordChallenge",
+          "name": "Password Strength",
+          "category": "Broken Authentication",
+          "status": "found",
+          "relation": "root",
+          "by": [
+            "attack.no_rate_limit POST /rest/user/login"
+          ],
+          "note": "Nothing slows down password guessing at sign-in, which is how the admin's weak password can be found by trying."
+        },
+        {
+          "key": "negativeOrderChallenge",
+          "name": "Payback Time",
+          "category": "Improper Input Validation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "premiumPaywallChallenge",
+          "name": "Premium Paywall",
+          "category": "Cryptographic Issues",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "privacyPolicyChallenge",
+          "name": "Privacy Policy",
+          "category": "Miscellaneous",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "privacyPolicyProofChallenge",
+          "name": "Privacy Policy Inspection",
+          "category": "Security through Obscurity",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "changeProductChallenge",
+          "name": "Product Tampering",
+          "category": "Broken Access Control",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "reflectedXssChallenge",
+          "name": "Reflected XSS",
+          "category": "XSS",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "passwordRepeatChallenge",
+          "name": "Repetitive Registration",
+          "category": "Improper Input Validation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "resetPasswordBenderChallenge",
+          "name": "Reset Bender's Password",
+          "category": "Broken Authentication",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "resetPasswordBjoernChallenge",
+          "name": "Reset Bjoern's Password",
+          "category": "Broken Authentication",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "resetPasswordJimChallenge",
+          "name": "Reset Jim's Password",
+          "category": "Broken Authentication",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "resetPasswordMortyChallenge",
+          "name": "Reset Morty's Password",
+          "category": "Broken Anti Automation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "retrieveBlueprintChallenge",
+          "name": "Retrieve Blueprint",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "ssrfChallenge",
+          "name": "SSRF",
+          "category": "Broken Access Control",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "sstiChallenge",
+          "name": "SSTi",
+          "category": "Injection",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "scoreBoardChallenge",
+          "name": "Score Board",
+          "category": "Miscellaneous",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "securityPolicyChallenge",
+          "name": "Security Policy",
+          "category": "Miscellaneous",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "persistedXssFeedbackChallenge",
+          "name": "Server-side XSS Protection",
+          "category": "XSS",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "hiddenImageChallenge",
+          "name": "Steganography",
+          "category": "Security through Obscurity",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "rceOccupyChallenge",
+          "name": "Successful RCE DoS",
+          "category": "Insecure Deserialization",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "supplyChainAttackChallenge",
+          "name": "Supply Chain Attack",
+          "category": "Vulnerable Components",
+          "status": "missed",
+          "relation": "same",
+          "note": "eslint-scope is not pinned in a manifest yof reads; the challenge points at the forgotten backup files under ftp/."
+        },
+        {
+          "key": "twoFactorAuthUnsafeSecretStorageChallenge",
+          "name": "Two Factor Authentication",
+          "category": "Broken Authentication",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "jwtUnsignedChallenge",
+          "name": "Unsigned JWT",
+          "category": "Vulnerable Components",
+          "status": "found",
+          "relation": "root",
+          "by": [
+            "package.vulnerable package.json express-jwt@0.1.3",
+            "package.vulnerable package.json jsonwebtoken@0.4.0"
+          ],
+          "note": "The shop accepts a token signed with the 'none' algorithm because it pins jsonwebtoken 0.4.0 and express-jwt 0.1.3, which have published advisories for that token check."
+        },
+        {
+          "key": "uploadSizeChallenge",
+          "name": "Upload Size",
+          "category": "Improper Input Validation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "uploadTypeChallenge",
+          "name": "Upload Type",
+          "category": "Improper Input Validation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "unionSqlInjectionChallenge",
+          "name": "User Credentials",
+          "category": "Injection",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "videoXssChallenge",
+          "name": "Video XSS",
+          "category": "XSS",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "basketAccessChallenge",
+          "name": "View Basket",
+          "category": "Broken Access Control",
+          "status": "missed",
+          "relation": "same",
+          "note": "yof's tenant test creates a record holding a marker text and reads it back as account B. A basket holds products, not text yof can mark, so the test cannot be set up for baskets."
+        },
+        {
+          "key": "knownVulnerableComponentChallenge",
+          "name": "Vulnerable Library",
+          "category": "Vulnerable Components",
+          "status": "found",
+          "relation": "same",
+          "by": [
+            "package.vulnerable package.json express-jwt@0.1.3",
+            "package.vulnerable package.json sanitize-html@1.4.2"
+          ],
+          "note": "The challenge's accepted answers are express-jwt 0.1.3 and sanitize-html 1.4.2, both pinned in package.json. yof's package check looks up exact pinned versions in the OSV advisory database."
+        },
+        {
+          "key": "weirdCryptoChallenge",
+          "name": "Weird Crypto",
+          "category": "Cryptographic Issues",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "redirectChallenge",
+          "name": "Allowlist Bypass",
+          "category": "Unvalidated Redirects",
+          "status": "missed",
+          "relation": "same",
+          "note": "The shop allows a redirect when an allowed address appears anywhere in the link. yof's probe sends a plain outside address, which the shop refuses."
+        },
+        {
+          "key": "xxeFileDisclosureChallenge",
+          "name": "XXE Data Access",
+          "category": "XXE",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "xxeDosChallenge",
+          "name": "XXE DoS",
+          "category": "XXE",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "yamlBombChallenge",
+          "name": "Memory Bomb",
+          "category": "Insecure Deserialization",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "zeroStarsChallenge",
+          "name": "Zero Stars",
+          "category": "Improper Input Validation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "missingEncodingChallenge",
+          "name": "Missing Encoding",
+          "category": "Improper Input Validation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "svgInjectionChallenge",
+          "name": "Cross-Site Imaging",
+          "category": "Security Misconfiguration",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "exposedMetricsChallenge",
+          "name": "Exposed Metrics",
+          "category": "Observability Failures",
+          "status": "not_tested",
+          "note": "yof attack tests the routes its config lists. It does not search for unlisted pages such as /metrics."
+        },
+        {
+          "key": "misplacedIacFiles",
+          "name": "Misplaced IaC Files",
+          "category": "Security Misconfiguration",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "freeDeluxeChallenge",
+          "name": "Deluxe Fraud",
+          "category": "Improper Input Validation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "csrfChallenge",
+          "name": "CSRF",
+          "category": "Broken Access Control",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "xssBonusChallenge",
+          "name": "Bonus Payload",
+          "category": "XSS",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "resetPasswordUvoginChallenge",
+          "name": "Reset Uvogin's Password",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "geoStalkingMetaChallenge",
+          "name": "Meta Geo Stalking",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "geoStalkingVisualChallenge",
+          "name": "Visual Geo Stalking",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "nullByteChallenge",
+          "name": "Poison Null Byte",
+          "category": "Improper Input Validation",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "lfrChallenge",
+          "name": "Local File Read",
+          "category": "Vulnerable Components",
+          "status": "not_available",
+          "note": "OWASP Juice Shop turns this off when it runs in Docker."
+        },
+        {
+          "key": "closeNotificationsChallenge",
+          "name": "Mass Dispel",
+          "category": "Miscellaneous",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "csafChallenge",
+          "name": "Security Advisory",
+          "category": "Miscellaneous",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "exposedCredentialsChallenge",
+          "name": "Exposed Credentials",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "yof finds keys by their exact shape. An email address and a password written in code have no shape it can tell apart from ordinary text."
+        },
+        {
+          "key": "leakedApiKeyChallenge",
+          "name": "Leaked API Key",
+          "category": "Sensitive Data Exposure",
+          "status": "not_available",
+          "note": "The key is not in the shop's source code: it sits in a separate scheduled job, so no source check of this repository can find it."
+        },
+        {
+          "key": "chatbotPromptInjectionChallenge",
+          "name": "Chatbot Prompt Injection",
+          "category": "Injection",
+          "status": "not_available",
+          "note": "Needs the shop's AI chatbot, which talks to a local language-model server. The benchmark does not start one, to keep the run short, so yof's assistant probes are not run here."
+        },
+        {
+          "key": "chatbotGreedyInjectionChallenge",
+          "name": "Greedy Chatbot Manipulation",
+          "category": "Injection",
+          "status": "not_available",
+          "note": "Needs the shop's AI chatbot, which talks to a local language-model server. The benchmark does not start one, to keep the run short, so yof's assistant probes are not run here."
+        },
+        {
+          "key": "aiDebuggingChallenge",
+          "name": "AI Debugging",
+          "category": "Broken Access Control",
+          "status": "not_available",
+          "note": "Needs the shop's AI chatbot, which talks to a local language-model server. The benchmark does not start one, to keep the run short, so yof's assistant probes are not run here."
+        },
+        {
+          "key": "systemPromptExtractionChallenge",
+          "name": "System Prompt Extraction",
+          "category": "Injection",
+          "status": "not_available",
+          "note": "Needs the shop's AI chatbot, which talks to a local language-model server. The benchmark does not start one, to keep the run short, so yof's assistant probes are not run here."
+        },
+        {
+          "key": "iacLeakedKeyChallenge",
+          "name": "Login Cloud Admin",
+          "category": "Sensitive Data Exposure",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "vulnerableDockerImageChallenge",
+          "name": "Vulnerable Infrastructure",
+          "category": "Vulnerable Components",
+          "status": "not_tested",
+          "note": "yof does not read Dockerfiles or container images."
+        }
+      ],
+      "extra": [
+        {
+          "id": "attack|attack.auth_bypass|GET /api/Feedbacks",
+          "source": "attack",
+          "rule": "attack.auth_bypass",
+          "where": "GET /api/Feedbacks",
+          "verdict": "false_positive",
+          "note": "Public by design: the About Us page lists customer feedback to anyone. server.ts at the pinned commit guards only /api/Feedbacks/:id, not the list."
+        },
+        {
+          "id": "attack|attack.auth_bypass|GET /rest/user/whoami",
+          "source": "attack",
+          "rule": "attack.auth_bypass",
+          "where": "GET /rest/user/whoami",
+          "verdict": "false_positive",
+          "note": "Public by design: whoami answers every visitor and returns an empty user when no one is signed in (server.ts line 628 has no sign-in check)."
+        },
+        {
+          "id": "attack|attack.missing_headers|GET /",
+          "source": "attack",
+          "rule": "attack.missing_headers",
+          "where": "GET /",
+          "verdict": "real_not_listed",
+          "note": "server.ts sets only nosniff and frameguard; there is no Content-Security-Policy, and the official list has no challenge for missing headers."
+        },
+        {
+          "id": "key|secret.private_key|infrastructure/terraform/networking.tf:171",
+          "source": "key",
+          "rule": "secret.private_key",
+          "where": "infrastructure/terraform/networking.tf:171",
+          "verdict": "real_not_listed",
+          "note": "The same inline TLS private key in the second copy of the Terraform file."
+        },
+        {
+          "id": "key|secret.private_key|lib/insecurity.ts:21",
+          "source": "key",
+          "rule": "secret.private_key",
+          "where": "lib/insecurity.ts:21",
+          "verdict": "real_not_listed",
+          "note": "The RSA private key that signs the shop's sign-in tokens is written in the source. The list's JWT challenges use other weaknesses (the 'none' algorithm and key confusion)."
+        },
+        {
+          "id": "key|secret.private_key|terraform/networking.tf:171",
+          "source": "key",
+          "rule": "secret.private_key",
+          "where": "terraform/networking.tf:171",
+          "verdict": "real_not_listed",
+          "note": "A TLS private key written inline in the Terraform file. 'Misplaced IaC Files' is about reaching these files over the web, not about the key inside them."
+        }
+      ]
+    },
+    {
+      "id": "nodegoat",
+      "name": "OWASP NodeGoat",
+      "repo": "https://github.com/OWASP/NodeGoat",
+      "tag": null,
+      "commit": "c5cb68a7084e4ae7dcc60e6a98768720a81841e8",
+      "run": "Built from its own Dockerfile at the pinned commit, with MongoDB 4.4.29 (pinned by digest), on 127.0.0.1:4000 inside the runner.",
+      "image": null,
+      "list": {
+        "file": "app/views/tutorial/layout.html",
+        "label": "tutorial topics",
+        "items": 12
+      },
+      "ran": true,
+      "error": null,
+      "check": {
+        "filesScanned": 103,
+        "dependenciesChecked": 35,
+        "registryUnanswered": 0,
+        "truncated": false
+      },
+      "attack": {
+        "requests": 27,
+        "seconds": 3,
+        "groups": {
+          "auth": "done",
+          "tenant": "skipped",
+          "rbac": "done",
+          "ai": "skipped",
+          "surface": "done"
+        },
+        "stopped": null,
+        "notes": []
+      },
+      "solvedDuringRun": [],
+      "counts": {
+        "items": 12,
+        "found": 3,
+        "foundSame": 3,
+        "foundRoot": 0,
+        "missed": 3,
+        "notTested": 6,
+        "notAvailable": 0,
+        "extra": 1,
+        "falsePositives": 0,
+        "realNotListed": 1,
+        "toReview": 0
+      },
+      "items": [
+        {
+          "key": "a1",
+          "name": "A1 Injection",
+          "category": "OWASP Top 10 2013",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "a2",
+          "name": "A2 Broken Auth",
+          "category": "OWASP Top 10 2013",
+          "status": "missed",
+          "relation": "same",
+          "note": "yof's sign-in checks need a sign-in route that answers 2xx with a token or a cookie. NodeGoat answers its sign-in with a redirect, so the benchmark signs in itself and those two checks cannot run."
+        },
+        {
+          "key": "a3",
+          "name": "A3 XSS",
+          "category": "OWASP Top 10 2013",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "a4",
+          "name": "A4 Insecure DOR",
+          "category": "OWASP Top 10 2013",
+          "status": "missed",
+          "relation": "same",
+          "note": "yof's tenant test creates its own record through a JSON API and reads it back as account B. NodeGoat's pages are server-rendered forms with no such API, so the test cannot be set up."
+        },
+        {
+          "key": "a5",
+          "name": "A5 Misconfig",
+          "category": "OWASP Top 10 2013",
+          "status": "found",
+          "relation": "same",
+          "by": [
+            "attack.missing_headers GET /"
+          ],
+          "note": "The fix the app documents for this topic (server.js, \"Fix for A5\") adds the security headers that yof's surface group checks for."
+        },
+        {
+          "key": "a6",
+          "name": "A6 Sensitive Data",
+          "category": "OWASP Top 10 2013",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "a7",
+          "name": "A7 Access Controls",
+          "category": "OWASP Top 10 2013",
+          "status": "found",
+          "relation": "same",
+          "by": [
+            "attack.rbac_escalation GET /benefits"
+          ],
+          "note": "A normal member opening the admin-only benefits page."
+        },
+        {
+          "key": "a8",
+          "name": "A8 CSRF",
+          "category": "OWASP Top 10 2013",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "a9",
+          "name": "A9 Insecure Components",
+          "category": "OWASP Top 10 2013",
+          "status": "found",
+          "relation": "same",
+          "by": [
+            "package.vulnerable package.json marked@0.3.5"
+          ],
+          "note": "Dependencies with published advisories, which yof's package check looks up for exact pinned versions."
+        },
+        {
+          "key": "a10",
+          "name": "A10 Redirects",
+          "category": "OWASP Top 10 2013",
+          "status": "missed",
+          "relation": "same",
+          "note": "The redirect sits behind sign-in, and yof's redirect probe runs signed out."
+        },
+        {
+          "key": "redos",
+          "name": "ReDoS Attacks",
+          "category": "Extra topic",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        },
+        {
+          "key": "ssrf",
+          "name": "SSRF",
+          "category": "Extra topic",
+          "status": "not_tested",
+          "note": "Outside what yof checks. yof looks for leaked keys and risky packages in the source, and runs five attack groups against the running app: sign-in bypass, one user reading or changing another user's records, member access to admin routes, assistant probes, and redirects, headers and sign-in limits."
+        }
+      ],
+      "extra": [
+        {
+          "id": "key|secret.private_key|artifacts/cert/server.key:1",
+          "source": "key",
+          "rule": "secret.private_key",
+          "where": "artifacts/cert/server.key:1",
+          "verdict": "real_not_listed",
+          "note": "The HTTPS server's private key is committed to the repository. NodeGoat's tutorial topics do not name it."
+        }
+      ]
+    }
+  ]
+}

@@ -97,6 +97,16 @@ ignore:
 
 `--profile strict` on the command line overrides the file. yof also skips `node_modules`, `.git`, `dist`, `build`, `.next` and similar folders, lock files, binary files, files over 1 MB, and what your root `.gitignore` lists (read simply: plain names, folders and globs; `!` lines are not applied).
 
+## Accepted risks: `.yof/accepted.json`
+
+Some findings are fine on purpose, like a revoked test key in a fixture. Accept one from your editor (VS Code: the quick fix "yof: Accept this risk…") with a one-sentence reason, and commit the file it writes:
+
+```json
+{ "version": 1, "accepted": [ { "rule": "secret.stripe_test", "file": "tests/pay.ts", "fingerprint": "…", "reason": "A test key in a fixture", "acceptedBy": "Ada", "acceptedAt": "2026-11-07T10:00:00.000Z" } ] }
+```
+
+`yof check` still prints an accepted finding, under "Accepted risks", with the reason, who and when; it no longer counts as open or fails the check. The fingerprint covers the rule, the file and the finding's line, so if that line changes the finding is open again. Remove the entry to reopen it. yof's signed reports list these entries in their "Accepted risks and why" appendix.
+
 ## What it checks
 
 **Keys** (exact shapes only, so a random hash never raises an alarm):
@@ -140,7 +150,7 @@ What it tries:
 | `auth` | Opens each signed-in route with no sign-in and with a broken token |
 | `tenant` | Account A creates a test record, account B reads it by id, finds it in a list and changes it |
 | `rbac` | Opens each admin route as a normal member |
-| `ai` | Your own assistant route: asks for its hidden instructions, types a command into a message, hides one in a record it reads, asks it for account B's record and for admin data |
+| `ai` | Your own assistant route: asks for its hidden instructions, types a command into a message, hides one in a record it reads (an HTML comment, a link title, a "system" field), asks it for account B's record, to rename account B's record, and for admin data; checks whether account B's record steers account A's general answers (RAG poisoning); asks it to answer with live HTML or a picture link, to drop its rules for one harmless word, for its internal addresses and tool list, and to send an email to a `.invalid` address; and, only with `"limits": true`, sends 10 tiny messages two at a time and asks for one very long story |
 | `surface` | Open redirects, security headers, the sign-in cookie flags, and (when you turn it on) twelve wrong passwords in a row |
 
 Safe by design, and enforced in the code:
@@ -151,6 +161,8 @@ Safe by design, and enforced in the code:
 - **No destructive requests.** GET and HEAD, plus POST only to the create, sign-in and assistant routes you name. PATCH, PUT and DELETE only touch records the run created itself, and those are deleted at the end, always.
 - **Hard budgets**: 300 requests and 110 seconds by default (at most 2,000 and 15 minutes), a steady pace, a 10 second timeout. When a budget runs out the run stops and says so, after deleting its test records.
 - **Stop it any time.** Ctrl+C (SIGINT) or SIGTERM, as an editor or CI sends on cancel: nothing new is sent, the test records the run created are deleted (within 10 seconds), it says what it deleted and anything it could not, and exits 130 or 143. A second Ctrl+C quits at once.
+- **Mild, fixed assistant messages.** The assistant probes are the same fixed texts every run (the OWASP Top 10 for LLM Applications 2025 families). None asks for harmful content: the jailbreak asks only for a harmless test word, picture links point at `yof-canary.invalid` and the email probe at an `example.invalid` address, which never resolve. Rules decide every finding, never a model. For internal details only the kind is kept (a private address, a connection string, a server path, a tool list), never the text.
+- **Usage limits are opt-in.** `"limits": true` on an `ai` entry adds a burst of 10 tiny messages and one request for a very long story, because it costs you a little model use. Without it, nothing of the kind is sent.
 - **Your test accounts stay in your CI secrets.** The config names environment variables, never a token or password, and nothing is stored by yof.
 
 The config lives at `.yof/attack.json`:
@@ -174,7 +186,11 @@ The config lives at `.yof/attack.json`:
     "update": { "method": "PATCH", "path": "/api/notes/{id}", "body": "{\"title\":\"{{marker}}\"}" },
     "delete": "/api/notes/{id}"
   }],
-  "ai": [{ "path": "/api/chat", "body": "{\"message\":\"{{message}}\"}", "replyPath": "reply" }],
+  "ai": [{
+    "path": "/api/chat", "body": "{\"message\":\"{{message}}\"}", "replyPath": "reply",
+    "ingest": { "create": { "path": "/api/notes", "body": "{\"title\":\"{{document}}\"}" }, "idPath": "id", "delete": "/api/notes/{id}" },
+    "limits": false
+  }],
   "surface": { "redirectPaths": ["/login"], "rateLimit": false },
   "production": { "enabled": false, "window": "02:00-04:00" },
   "budget": { "requests": 300, "seconds": 110, "perSecond": 8 }

@@ -57,7 +57,7 @@
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p benchmark",
     "check": "npm run typecheck && npm test && npm run build",
     "prepublishOnly": "npm run check"
   },

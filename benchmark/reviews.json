@@ -1,0 +1,34 @@
+{
+  "juice-shop": {
+    "attack|attack.auth_bypass|GET /api/Feedbacks": {
+      "verdict": "false_positive",
+      "note": "Public by design: the About Us page lists customer feedback to anyone. server.ts at the pinned commit guards only /api/Feedbacks/:id, not the list."
+    },
+    "attack|attack.auth_bypass|GET /rest/user/whoami": {
+      "verdict": "false_positive",
+      "note": "Public by design: whoami answers every visitor and returns an empty user when no one is signed in (server.ts line 628 has no sign-in check)."
+    },
+    "attack|attack.missing_headers|GET /": {
+      "verdict": "real_not_listed",
+      "note": "server.ts sets only nosniff and frameguard; there is no Content-Security-Policy, and the official list has no challenge for missing headers."
+    },
+    "key|secret.private_key|lib/insecurity.ts:21": {
+      "verdict": "real_not_listed",
+      "note": "The RSA private key that signs the shop's sign-in tokens is written in the source. The list's JWT challenges use other weaknesses (the 'none' algorithm and key confusion)."
+    },
+    "key|secret.private_key|terraform/networking.tf:171": {
+      "verdict": "real_not_listed",
+      "note": "A TLS private key written inline in the Terraform file. 'Misplaced IaC Files' is about reaching these files over the web, not about the key inside them."
+    },
+    "key|secret.private_key|infrastructure/terraform/networking.tf:171": {
+      "verdict": "real_not_listed",
+      "note": "The same inline TLS private key in the second copy of the Terraform file."
+    }
+  },
+  "nodegoat": {
+    "key|secret.private_key|artifacts/cert/server.key:1": {
+      "verdict": "real_not_listed",
+      "note": "The HTTPS server's private key is committed to the repository. NodeGoat's tutorial topics do not name it."
+    }
+  }
+}
