@@ -7,6 +7,7 @@ import { CheckError, runCheck } from "./check";
 import { PROFILES, type Profile } from "./config";
 import type { GitRunner } from "./files";
 import { formatJson, formatText } from "./format";
+import { checkToFindingsJson, formatImportText, importFindings } from "./findings-format";
 import { installHook, uninstallHook } from "./hook";
 import type { PackageFetcher } from "./packages";
 
@@ -22,11 +23,15 @@ Usage
   yof hook uninstall        Remove that pre-commit hook
   yof attack [url]          Attack your own app with your test accounts (config: .yof/attack.json)
   yof diff                  Check only what changed since the last commit (plus new files)
+  yof import <file> [path]  Read a findings.json (Cloudflare's security-audit format) and check each
+                            record's file and line against a folder (default: the current one)
   yof mcp [path]            Run yof as a local MCP server for AI builders (Claude Code, Cursor, VS Code, Codex...)
 
 Options
   --offline                 Skip the package-registry lookups (keys only, no network at all)
   --json                    Print machine-readable JSON
+  --format <name>           text | json | findings-json (findings.json, the format of Cloudflare's
+                            security-audit skill, with yof's verdicts: confirmed or needs validation)
   --profile <name>          relaxed | balanced | strict (overrides .yof.yml)
 
 yof attack options
@@ -77,7 +82,7 @@ export async function main(argv: string[], io: Io = defaultIo()): Promise<number
   const values: Record<string, string> = {};
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
-    const valued = ["--config", "--mode", "--base", "--comment"].find((f) => a === f || a.startsWith(`${f}=`));
+    const valued = ["--config", "--mode", "--base", "--comment", "--format"].find((f) => a === f || a.startsWith(`${f}=`));
     if (valued) {
       const v = a.includes("=") ? a.slice(a.indexOf("=") + 1) : argv[++i];
       if (!v || v.startsWith("--")) { io.err(`${valued} needs a value.`); return 2; }
@@ -104,6 +109,9 @@ export async function main(argv: string[], io: Io = defaultIo()): Promise<number
     return r.ok ? 0 : 2;
   }
 
+  const format = values["--format"] ?? (flags.has("--json") ? "json" : "text");
+  if (!["text", "json", "findings-json"].includes(format)) { io.err("--format must be text, json or findings-json."); return 2; }
+
   if (cmd === "check") {
     if (rest.length > 1) { io.err("yof check takes one path at most."); return 2; }
     try {
@@ -111,7 +119,7 @@ export async function main(argv: string[], io: Io = defaultIo()): Promise<number
         path: rest[0] ?? ".", cwd: io.cwd, staged: flags.has("--staged"), offline: flags.has("--offline"),
         profile, fetcher: io.fetcher, git: io.git, now: io.now,
       });
-      io.out(flags.has("--json") ? formatJson(report, { version: VERSION }) : formatText(report));
+      io.out(format === "findings-json" ? JSON.stringify(checkToFindingsJson(report), null, 2) : format === "json" ? formatJson(report, { version: VERSION }) : formatText(report));
       return report.failed ? 1 : 0;
     } catch (e) {
       if (e instanceof CheckError) { io.err(e.message); return 2; }
@@ -145,6 +153,24 @@ export async function main(argv: string[], io: Io = defaultIo()): Promise<number
     } finally {
       stop.dispose();
     }
+  }
+
+  // `yof import <findings.json> [path]`: read a findings.json strictly and check each record against the folder, read
+  // only. Exit 2 when the file is not valid findings.json, 1 when a record needs a look, 0 when none does.
+  if (cmd === "import") {
+    if (!rest.length || rest.length > 2) { io.err("Usage: yof import <findings.json> [path]"); return 2; }
+    const { readFileSync, statSync } = await import("node:fs");
+    const { resolve } = await import("node:path");
+    const file = resolve(io.cwd, rest[0]!);
+    let text: string;
+    try {
+      if (statSync(file).size > 5 * 1024 * 1024) { io.err(`${rest[0]} is larger than 5 MB.`); return 2; }
+      text = readFileSync(file, "utf8");
+    } catch { io.err(`Could not read ${rest[0]}.`); return 2; }
+    const r = importFindings(text, resolve(io.cwd, rest[1] ?? "."));
+    io.out(format === "json" ? JSON.stringify(r, null, 2) : formatImportText(r, rest[0]!));
+    if (r.errors.length) return 2;
+    return r.records.some((x) => x.verdict !== "rejected") ? 1 : 0;
   }
 
   // `yof diff`: the same scan as the MCP tool yof_check_diff (the working tree's changes against HEAD, plus new files),

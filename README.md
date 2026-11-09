@@ -305,9 +305,11 @@ yof hook install       Run "yof check --staged" before every commit
 yof hook uninstall     Remove that hook
 yof diff               Check only what changed since the last commit (plus new files)
 yof mcp [path]         Run yof as a local MCP server for AI builders
+yof import <file> [path]  Read a findings.json and check each record's file and line here
 
 --offline              Skip the package-registry lookups (keys only)
 --json                 Machine-readable output (masked values only)
+--format <name>        text | json | findings-json
 --profile <name>       relaxed | balanced | strict
 -v, --version          Print the version
 -h, --help             Print help
@@ -316,6 +318,12 @@ yof mcp [path]         Run yof as a local MCP server for AI builders
 Exit codes: `0` nothing to fix, `1` something to fix (per the profile), `2` usage or setup error.
 
 With `--json`, every finding also carries `why` (what can happen, in plain words) and `fixPrompt` (what to change, ready to paste into the AI assistant that wrote the code, with the masked value only). The yof editor plugins show these as they are.
+
+### findings.json (Cloudflare's security-audit format)
+
+`yof check --format findings-json` writes the findings in the `findings.json` format of Cloudflare's security-audit skill (MIT licensed, see NOTICE), so the tools that read it can read yof too. Every record has a verdict: `confirmed` when the exact evidence is in the folder (a key in a provider's format, a package the registry does not have, an installed version an advisory names) and `needs_validation` when it is likely but not shown (a name one or two letters from a popular package, a package only days old). Keys that are public by design are hardening notes, not findings, and are left out. Nothing `yof check` finds is rated critical: it never runs your code or reaches a live app, so "high" is the most.
+
+`yof import findings.json [path]` reads a findings.json strictly (a record with an unknown field, a missing field, a wrong value or a severity above its demonstrated impact is named and left out, never repaired) and checks each record against the folder, read only: does the file exist inside the folder, and does the line exist. Nothing is run and nothing is sent. Exit `2` when the file does not match the schema, `1` when a record needs a look, `0` when only rejected records are left.
 
 You can also use it as a library: `import { scanText, checkPackages, runCheck } from "@yof/cli"`.
 
