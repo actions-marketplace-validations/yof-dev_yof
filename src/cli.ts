@@ -21,6 +21,8 @@ Usage
   yof hook install          Run "yof check --staged" before every commit
   yof hook uninstall        Remove that pre-commit hook
   yof attack [url]          Attack your own app with your test accounts (config: .yof/attack.json)
+  yof diff                  Check only what changed since the last commit (plus new files)
+  yof mcp [path]            Run yof as a local MCP server for AI builders (Claude Code, Cursor, VS Code, Codex...)
 
 Options
   --offline                 Skip the package-registry lookups (keys only, no network at all)
@@ -43,6 +45,10 @@ yof check runs on your machine. Your code is never sent anywhere; its only netwo
 package-registry lookups (npm, PyPI, OSV), which --offline turns off. yof attack sends requests
 only to the app you proved is yours.
 
+yof mcp talks MCP over stdio. Its scans run on your machine and never upload code. With YOF_API_KEY
+(made by "Connect your AI builder" in the yof dashboard) it can also read your yof.io findings and Patch
+pull requests; then it sends only ids and rule ids to yof.io.
+
 More: https://yof.io`;
 
 export interface Io {
@@ -58,6 +64,8 @@ export interface Io {
   sleep?: (ms: number) => Promise<void>;
   /** Where SIGINT / SIGTERM come from (tests pass a fake); default: this process. */
   signals?: SignalHost;
+  /** yof mcp: the transport (tests pass an in-memory one); default stdio. */
+  mcpTransport?: import("@modelcontextprotocol/sdk/shared/transport.js").Transport;
 }
 
 const defaultIo = (): Io => ({ cwd: process.cwd(), out: (s) => process.stdout.write(`${s}\n`), err: (s) => process.stderr.write(`${s}\n`) });
@@ -137,6 +145,30 @@ export async function main(argv: string[], io: Io = defaultIo()): Promise<number
     } finally {
       stop.dispose();
     }
+  }
+
+  // `yof diff`: the same scan as the MCP tool yof_check_diff (the working tree's changes against HEAD, plus new files),
+  // for hooks such as the Claude Code plugin's. Exit 1 when something marked "fix now" was added.
+  if (cmd === "diff") {
+    if (rest.length) { io.err("yof diff takes no path: it checks the changes of the folder it runs in."); return 2; }
+    const [{ callTool }, { remoteConfig }] = await Promise.all([import("./mcp/tools"), import("./mcp/remote")]);
+    const a = await callTool({ root: io.cwd, remote: remoteConfig({}, VERSION), fetcher: io.fetcher, git: io.git, now: io.now }, "yof_check_diff", { offline: flags.has("--offline") });
+    const d = a.data as { error?: string; findings?: { severity: string; rule: string; name: string; file: string; line?: number; value?: string; message?: string }[]; must_fix_before_done?: boolean };
+    if (d.error) { io.err(d.error); return 2; }
+    if (flags.has("--json")) { io.out(JSON.stringify(d, null, 2)); return d.must_fix_before_done ? 1 : 0; }
+    const f = d.findings ?? [];
+    io.out(f.length ? [`yof found ${f.length} ${f.length === 1 ? "problem" : "problems"} in what changed:`, ...f.map((x) => `  ${x.severity === "fix_now" ? "Fix now" : x.severity === "fix_week" ? "Fix this week" : "Info"}  ${x.file}${x.line ? `:${x.line}` : ""}  ${x.name}${x.value ? ` (${x.value})` : ""}`)].join("\n") : "yof: nothing to fix in what changed.");
+    return d.must_fix_before_done ? 1 : 0;
+  }
+
+  if (cmd === "mcp") {
+    if (rest.length > 1) { io.err("yof mcp takes one folder at most."); return 2; }
+    const [{ runMcpServer }, { projectRoot }, { remoteConfig }] = await Promise.all([import("./mcp/server"), import("./mcp/tools"), import("./mcp/remote")]);
+    const env = io.env ?? process.env;
+    let root: string;
+    try { root = projectRoot(io.cwd, rest[0], env); } catch (e) { io.err(e instanceof Error ? e.message : String(e)); return 2; }
+    await runMcpServer({ root, remote: remoteConfig(env, VERSION), fetcher: io.fetcher, git: io.git, now: io.now }, VERSION, io.mcpTransport, io.err);
+    return 0;
   }
 
   io.err(`Unknown command: ${cmd}\n\n${HELP}`);

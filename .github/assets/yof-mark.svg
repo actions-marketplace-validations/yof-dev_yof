@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="27 14.5 440 440" width="512" height="512" role="img" aria-labelledby="yof-title">
+  <!-- The yof dog, square, for avatars and icons. -->
+  <title id="yof-title">yof</title>
+  <rect x="27" y="14.5" width="440" height="440" fill="#0c0d11"/>
+  <path d="M228 309H300C346 309 373 272 382 231C383 225 380 222 374 220L337 207C319 177 293 160 258 160H180C167 160 159 164 153 173L120 228C106 252 110 282 136 284C162 286 186 274 188 250L190 162" fill="none" stroke="#eceef2" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="258" cy="212" r="12" fill="#36c98a"/>
+</svg>

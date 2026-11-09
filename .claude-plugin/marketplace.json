@@ -1,0 +1,11 @@
+{
+  "name": "yof",
+  "owner": { "name": "yof", "url": "https://yof.io" },
+  "plugins": [
+    {
+      "name": "yof",
+      "source": "./integrations/claude-code",
+      "description": "Checks the code Claude writes for leaked keys and made-up packages before it says the work is done. Runs on your machine."
+    }
+  ]
+}

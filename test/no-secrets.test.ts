@@ -34,15 +34,22 @@ describe("nothing private in this repository", () => {
     // Plus addresses that are never requested: the shape of a Slack webhook, named in the Slack rule's fix words, and the
     // reserved .invalid addresses inside the assistant probes' message text (they never resolve; the probe image host is
     // the constant PROBE_IMAGE_HOST, yof-canary.invalid).
-    const allowed = /^https:\/\/(?:registry\.npmjs\.org|api\.npmjs\.org|pypi\.org|api\.osv\.dev|api\.github\.com|yof\.io)(?:\/|$)|^https:\/\/hooks\.slack\.com\/services\/\.\.\.$|^https:\/\/example\.invalid$|^https:\/\/\$\{PROBE_IMAGE_HOST\}\//;
+    const allowed = /^https:\/\/(?:registry\.npmjs\.org|api\.npmjs\.org|pypi\.org|api\.osv\.dev|api\.github\.com|yof\.io|mcp\.yof\.io)(?:\/|$)|^https:\/\/hooks\.slack\.com\/services\/\.\.\.$|^https:\/\/example\.invalid$|^https:\/\/\$\{PROBE_IMAGE_HOST\}\//;
     for (const f of walk(join(ROOT, "src"))) {
       for (const m of readFileSync(f, "utf8").matchAll(/https?:\/\/[^\s"'`)\\]+/g)) expect(m[0], relative(ROOT, f)).toMatch(allowed);
     }
   });
 
-  it("no runtime dependencies", () => {
-    const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { dependencies?: unknown; name: string; license: string };
+  // 2026-11-09 (owner, board Y17): `yof mcp` runs on the official MCP SDK. It is bundled into dist at build time (tsup
+  // bundles devDependencies), pinned to an exact version with the zod it needs, so installing @yof/cli still installs
+  // nothing else; and only `yof mcp` loads it (the CLI imports ./mcp/server on demand).
+  it("no runtime dependencies (the MCP SDK is bundled, pinned exactly)", () => {
+    const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")) as { dependencies?: unknown; devDependencies: Record<string, string>; name: string; license: string };
     expect(pkg.dependencies).toBeUndefined();
+    expect(pkg.devDependencies["@modelcontextprotocol/sdk"]).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(pkg.devDependencies.zod).toMatch(/^\d+\.\d+\.\d+$/);
+    const eager = walk(join(ROOT, "src")).filter((f) => !f.includes(join("src", "mcp", "server.ts")) && readFileSync(f, "utf8").includes('from "@modelcontextprotocol'));
+    expect(eager).toEqual([]);
     expect(pkg.name).toBe("@yof/cli");
     expect(pkg.license).toBe("Apache-2.0");
   });

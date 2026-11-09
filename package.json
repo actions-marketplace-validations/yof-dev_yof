@@ -21,7 +21,9 @@
     "typosquatting",
     "dependencies",
     "cli",
-    "github-action"
+    "github-action",
+    "mcp",
+    "model-context-protocol"
   ],
   "type": "module",
   "bin": {
@@ -62,13 +64,16 @@
     "prepublishOnly": "npm run check"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@types/node": "^22.19.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^2.1.9"
+    "vitest": "^2.1.9",
+    "zod": "3.25.76"
   },
   "publishConfig": {
     "access": "public",
     "provenance": true
-  }
+  },
+  "mcpName": "io.yof/yof"
 }

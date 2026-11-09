@@ -1,12 +1,27 @@
-# yof
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/yof-logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset=".github/assets/yof-logo-light.svg">
+    <img alt="yof" src=".github/assets/yof-logo-light.svg" width="220">
+  </picture>
+</p>
+
+<p align="center"><strong>Security checks for apps you build with AI</strong></p>
+
+<p align="center">Catch leaked keys, risky or made-up packages and access holes between accounts before you ship. Free and open source.</p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/@yof/cli"><img alt="@yof/cli on npm" src="https://img.shields.io/npm/v/@yof/cli?label=%40yof%2Fcli"></a>
+  <a href="./LICENSE"><img alt="Licence" src="https://img.shields.io/npm/l/@yof/cli?label=licence"></a>
+  <a href="https://yof.io/benchmark"><img alt="Benchmark" src="https://img.shields.io/badge/benchmark-results-36c98a"></a>
+  <a href="https://yof.io"><img alt="yof.io" src="https://img.shields.io/badge/web-yof.io-0c0d11"></a>
+</p>
 
 **Catch leaked keys and made-up packages before they ship.**
 
 `yof` (yof by sōtem) is yof on your laptop: a small command-line check for apps built with AI assistants (and apps built any other way). It finds secret keys sitting in your code and dependencies that don't exist or imitate popular ones, before they reach a commit, a pull request or production.
 
 It is rules only: exact patterns, fast, and private. It runs on your machine, needs no account, and never sends your code anywhere.
-
-[![npm](https://img.shields.io/npm/v/@yof/cli)](https://www.npmjs.com/package/@yof/cli) [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue)](./LICENSE)
 
 ## Try it in 30 seconds
 
@@ -247,6 +262,34 @@ yof attack [url]          The address to test (or YOF_ATTACK_TARGET)
 --json                    Machine-readable output
 ```
 
+## Inside your AI builder: `yof mcp`
+
+`yof mcp` runs yof as a local MCP server (stdio), so the AI that writes your code can check it before it says "done". It works with any MCP client that starts a local command. The easiest way to connect is "Connect your AI builder" in the yof dashboard, which writes the config for you. By hand:
+
+```
+claude mcp add yof -- npx -y @yof/cli mcp          # Claude Code
+codex mcp add yof -- npx -y @yof/cli mcp           # Codex CLI
+```
+
+Cursor, VS Code, Windsurf and Claude Desktop take the same command in their MCP settings: `npx -y @yof/cli mcp`. Always use the scoped name `@yof/cli`: the unscoped npm name `yof` belongs to someone else.
+
+The tools:
+
+| Tool | What it does | Where it runs |
+| --- | --- | --- |
+| `yof_check` | Scan the project folder (or a folder inside it) | Your machine |
+| `yof_check_diff` | Scan only the lines that changed (a diff you pass, or the working tree against the last commit, plus new files) | Your machine |
+| `yof_explain` | What a rule means, why it matters, the safe fix | Your machine |
+| `yof_fix_prompt` | Exact fix steps for one finding | Your machine |
+| `yof_verify` | Re-scan one file and say fixed or not | Your machine |
+| `yof_findings` | Open findings from your yof.io account | yof.io, needs `YOF_API_KEY` |
+| `yof_patch_status` | Patch's open pull requests and their CI state | yof.io, needs `YOF_API_KEY` |
+| `yof_lessons` | Notes from merged Patch fixes | yof.io, needs `YOF_API_KEY` |
+
+Every answer starts with a line that says it is untrusted data from the scanned project, so text inside your files is never read as instructions. Secret values always come back as a short prefix plus `REDACTED`. Limits: a diff is at most 1 MB and 300 files, a scan stops after 90 seconds, and paths must stay inside the project folder.
+
+`YOF_API_KEY` is made by the yof dashboard for one connection and can be revoked there at any time. With it, the server sends one ping when it starts (so the dashboard can show that the connection works) and, for the three account tools, the tool name and its arguments (ids and rule ids). Never code or file contents.
+
 ## Privacy
 
 `yof check` runs on your machine. It reads files, matches patterns and prints the result. Your code, file names and keys never leave your computer. (`yof attack` sends requests only to the app you proved is yours, and to GitHub's API to read this repository's deployments.)
@@ -260,6 +303,8 @@ yof check [path]       Check a folder (default: the current one)
 yof check --staged     Check only the files staged for the next commit
 yof hook install       Run "yof check --staged" before every commit
 yof hook uninstall     Remove that hook
+yof diff               Check only what changed since the last commit (plus new files)
+yof mcp [path]         Run yof as a local MCP server for AI builders
 
 --offline              Skip the package-registry lookups (keys only)
 --json                 Machine-readable output (masked values only)

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.yof/yof",
+  "title": "yof",
+  "description": "Checks AI-written code for leaked keys and made-up packages, on your machine. Optional: your yof.io findings and Patch pull requests.",
+  "version": "0.3.0",
+  "repository": { "url": "https://github.com/yof-dev/yof", "source": "github" },
+  "websiteUrl": "https://yof.io/docs/ai-builders",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@yof/cli",
+      "version": "0.3.0",
+      "runtimeHint": "npx",
+      "transport": { "type": "stdio" },
+      "packageArguments": [{ "type": "positional", "value": "mcp" }],
+      "environmentVariables": [
+        { "name": "YOF_API_KEY", "description": "Optional. The key the yof dashboard makes for this connection (Connect your AI builder). Without it, only the local tools run.", "isRequired": false, "isSecret": true }
+      ]
+    }
+  ],
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.yof.io",
+      "headers": [
+        { "name": "Authorization", "description": "Bearer followed by the key the yof dashboard makes for this connection.", "isRequired": true, "isSecret": true }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" width="1280" height="640" role="img" aria-labelledby="yof-title">
+  <!-- The GitHub social preview for the yof repositories (1280 x 640). social-preview.png is this file rendered. -->
+  <title id="yof-title">yof: Security checks for apps you build with AI</title>
+  <defs>
+    <radialGradient id="glow-a" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(80 40) scale(900 620)">
+      <stop offset="0" stop-color="#22345a" stop-opacity="0.85"/><stop offset="1" stop-color="#22345a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-b" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1240 660) scale(760 520)">
+      <stop offset="0" stop-color="#144a4f" stop-opacity="0.9"/><stop offset="0.55" stop-color="#1d4a37" stop-opacity="0.35"/><stop offset="1" stop-color="#1d4a37" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1280" height="640" fill="#0c0d11"/>
+  <rect width="1280" height="640" fill="url(#glow-a)"/>
+  <rect width="1280" height="640" fill="url(#glow-b)"/>
+  <rect x="0.5" y="0.5" width="1279" height="639" fill="none" stroke="#eceef2" stroke-opacity="0.08"/>
+  <svg x="96" y="84" width="312" height="96.4" viewBox="96 146 576 178">
+    <path d="M228 309H300C346 309 373 272 382 231C383 225 380 222 374 220L337 207C319 177 293 160 258 160H180C167 160 159 164 153 173L120 228C106 252 110 282 136 284C162 286 186 274 188 250L190 162" fill="none" stroke="#eceef2" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="258" cy="212" r="12" fill="#36c98a"/>
+  <defs><mask id="yof-bite-social" maskUnits="userSpaceOnUse" x="96" y="146" width="576" height="178"><rect x="96" y="146" width="576" height="178" fill="#fff"/><circle cx="590" cy="226" r="15" fill="#000"/></mask></defs>
+  <g mask="url(#yof-bite-social)"><path d="M66.5 217.0V81.5H181.0Q206.75 81.5 224.625 74.875Q242.5 68.25 253.875 53.125Q265.25 38.0 271.5 11.75L406.5 -547.5H559.0L405.75 44.25Q389.75 108.5 361.125 146.5Q332.5 184.5 285.0 200.75Q237.5 217.0 164.5 217.0ZM238.5 -12.0V-137.0H354.5V-12.0ZM173 -12 4.5 -547.5H165.5L324.5 -12.0Z M875.25 19.5Q803.0 19.5 747.0 -3.0Q691.0 -25.5 652.25 -64.625Q613.5 -103.75 593.5 -154.25Q573.5 -204.75 573.5 -261.0V-283.5Q573.5 -341.25 594.375 -392.625Q615.25 -444.0 654.5 -483.125Q693.75 -522.25 749.75 -544.625Q805.75 -567.0 875.25 -567.0Q945.5 -567.0 1001.125 -544.625Q1056.75 -522.25 1096.0 -483.125Q1135.25 -444.0 1156.125 -392.625Q1177.0 -341.25 1177.0 -283.5V-261Q1177.0 -204.75 1157.0 -154.25Q1137.0 -103.75 1098.25 -64.625Q1059.5 -25.5 1003.5 -3.0Q947.5 19.5 875.25 19.5ZM875.25 -116.0Q921.75 -116.0 953.0 -136.125Q984.25 -156.25 1000.375 -191.875Q1016.5 -227.5 1016.5 -272.25Q1016.5 -318.75 999.875 -354.375Q983.25 -390.0 951.625 -410.75Q920.0 -431.5 875.25 -431.5Q830.75 -431.5 799.0 -410.75Q767.25 -390.0 750.625 -354.375Q734.0 -318.75 734.0 -272.25Q734.0 -227.5 750.125 -191.875Q766.25 -156.25 797.875 -136.125Q829.5 -116.0 875.25 -116.0Z M1266.0 0V-552.75Q1266.0 -647.75 1319.75 -693.875Q1373.5 -740.0 1478.75 -740.0H1548.5V-619.5H1471.75Q1444.5 -619.5 1429.75 -604.625Q1415.0 -589.75 1415.0 -562.75V0ZM1201.0 -420V-537H1557.0V-420Z" transform="translate(426 300) scale(0.1526)" fill="#eceef2"/></g>
+  </svg>
+  <text font-family="'Inter Tight', Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="600" font-size="76" letter-spacing="-2.6" fill="#eceef2">
+    <tspan x="96" y="318">Security checks for apps</tspan>
+    <tspan x="96" y="402">you build with AI</tspan>
+  </text>
+  <text font-family="Geist, Inter, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif" font-weight="400" font-size="30" fill="#aab0ba">
+    <tspan x="96" y="470">Catch leaked keys, open databases and risky packages</tspan>
+    <tspan x="96" y="512">before you ship. Free and open source.</tspan>
+  </text>
+  <text x="96" y="576" font-family="Hack, 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace" font-size="26" fill="#36c98a">yof.io</text>
+  <text x="1184" y="576" text-anchor="end" font-family="Hack, 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace" font-size="22" fill="#808794">github.com/yof-dev</text>
+</svg>

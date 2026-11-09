@@ -1,0 +1,10 @@
+{
+  "name": "yof",
+  "version": "0.3.0",
+  "description": "Checks the code Claude writes for leaked keys and made-up packages before it says the work is done. Runs on your machine.",
+  "author": { "name": "yof", "url": "https://yof.io" },
+  "homepage": "https://yof.io/docs/ai-builders/claude-code",
+  "repository": "https://github.com/yof-dev/yof",
+  "license": "Apache-2.0",
+  "keywords": ["security", "secrets", "leaked-keys", "dependencies", "mcp"]
+}

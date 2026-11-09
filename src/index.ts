@@ -25,3 +25,9 @@ export { blastRadius, routesOf, nextRoute, routeMatches, groupsFor, scopeLabel, 
 export { formatAttackText, formatAttackJson, attackComment, COMMENT_MARKER as ATTACK_COMMENT_MARKER, PAYLOAD_PREFIX as ATTACK_PAYLOAD_PREFIX, type AttackReport, type CommentPayload } from "./attack/report";
 export { runAttackCommand, uploadReport, AttackError, type AttackOptions, type AttackOutcome } from "./attack/command";
 export { stopOnSignals, processSignalHost, STOP_EXIT_CODE, type SignalHost, type StopSignal, type StopHandle } from "./attack/signals";
+// yof mcp (0.3.0): the tools AI builders call. The MCP server itself (./mcp/server) is loaded by `yof mcp` only.
+export { TOOLS as MCP_TOOLS, callTool as callMcpTool, toolList as mcpToolList, insideRoot, projectRoot, CHECK_TIMEOUT_MS, MAX_LISTED, type ToolContext, type ToolAnswer, type ToolDef } from "./mcp/tools";
+export { parseUnifiedDiff, addedText, workingTreeChanges, MAX_DIFF_BYTES, MAX_DIFF_FILES, DiffError, type ChangedFile } from "./mcp/diff";
+export { UNTRUSTED_HEADER, untrusted, redactText, redactMasked } from "./mcp/untrusted";
+export { remoteConfig, remoteTool, remotePing, DEFAULT_MCP_URL, KEY_SHAPE as MCP_KEY_SHAPE, RemoteError, type RemoteConfig } from "./mcp/remote";
+export { checkArgs, ArgsError, type ToolSchema } from "./mcp/schema";

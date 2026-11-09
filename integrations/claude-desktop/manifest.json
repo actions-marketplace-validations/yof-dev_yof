@@ -1,0 +1,37 @@
+{
+  "manifest_version": "0.3",
+  "name": "yof",
+  "display_name": "yof",
+  "version": "0.3.0",
+  "description": "Checks code for leaked keys and made-up packages, on your computer.",
+  "long_description": "yof scans a project folder for leaked keys and made-up or risky packages. Scans run on your computer and never upload code. With your yof key it can also read your yof.io findings and Patch pull requests (it sends only ids and rule ids).",
+  "author": { "name": "yof", "url": "https://yof.io" },
+  "homepage": "https://yof.io/docs/ai-builders/claude-desktop",
+  "repository": { "type": "git", "url": "https://github.com/yof-dev/yof" },
+  "license": "Apache-2.0",
+  "server": {
+    "type": "node",
+    "entry_point": "server/bin.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/server/bin.js", "mcp", "${user_config.project_dir}"],
+      "env": { "YOF_API_KEY": "${user_config.api_key}" }
+    }
+  },
+  "tools": [
+    { "name": "yof_check", "description": "Scan the project folder for leaked keys and made-up or risky packages." },
+    { "name": "yof_check_diff", "description": "Scan only what changed since the last commit." },
+    { "name": "yof_explain", "description": "What a finding means and the safe fix." },
+    { "name": "yof_fix_prompt", "description": "Exact fix steps for one finding." },
+    { "name": "yof_verify", "description": "Re-scan one file and say fixed or not." },
+    { "name": "yof_findings", "description": "Open findings from your yof.io account." },
+    { "name": "yof_patch_status", "description": "Patch's open pull requests and their CI state." },
+    { "name": "yof_lessons", "description": "Notes from merged Patch fixes." }
+  ],
+  "user_config": {
+    "project_dir": { "type": "directory", "title": "Project folder", "description": "The folder yof checks.", "required": true },
+    "api_key": { "type": "string", "title": "yof key (optional)", "description": "From Connect your AI builder in the yof dashboard. Leave empty to use only the local checks.", "required": false, "sensitive": true, "default": "" }
+  },
+  "compatibility": { "platforms": ["darwin", "win32", "linux"], "runtimes": { "node": ">=20.0.0" } },
+  "privacy_policies": ["https://yof.io/privacy"]
+}

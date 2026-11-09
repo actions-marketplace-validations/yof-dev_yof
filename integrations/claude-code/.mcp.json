@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "yof": {
+      "command": "npx",
+      "args": ["-y", "@yof/cli", "mcp"],
+      "env": { "YOF_API_KEY": "${YOF_API_KEY:-}" }
+    }
+  }
+}
