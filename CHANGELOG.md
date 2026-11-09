@@ -4,6 +4,8 @@ All notable changes to `@yof/cli`. The format follows Keep a Changelog, and vers
 
 ## Unreleased
 
+- Security: the zod bundled with `yof mcp` (through the MCP SDK) moves from 3.25.76 to 4.6.7. GHSA-mrhx-c7xc-m3w5 (memory exhaustion while validating oversized constrained arrays) affects every zod before 4.6.6 and no 3.x release fixes it. The MCP SDK 1.32.2 accepts `^3.25 || ^4.0`; yof's own code does not import zod. 0.3.0 on npm still bundles 3.25.76 until the next release.
+
 ## 0.3.0 (2026-11-09)
 
 - findings.json, the format of Cloudflare's security-audit skill (MIT, credited in NOTICE): `yof check --format findings-json` writes it with yof's verdicts (confirmed or needs validation; public-by-design keys are hardening notes and are left out; nothing is rated above high), and `yof import <file> [path]` reads one strictly and checks each record's file and line against the folder, read only. `--format text|json` is the same as before.
