@@ -347,4 +347,4 @@ Issues and pull requests are welcome, especially new key rules with a documented
 
 ## License
 
-Apache-2.0. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE). yof is made by Mondaily.
+Apache-2.0. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE). yof is published by Mondaily Ltd.
