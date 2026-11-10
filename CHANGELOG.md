@@ -4,6 +4,11 @@ All notable changes to `@yof/cli`. The format follows Keep a Changelog, and vers
 
 ## Unreleased
 
+## 0.3.1 (2026-11-09)
+
+- `yof check` reads each file once: it no longer walks into linked git worktrees (a folder whose `.git` file points into `worktrees/`), `.claude/worktrees/`, or tool caches (`.cache`, `.parcel-cache`, `.wrangler`, `.angular`, `.expo`, `.nx`, `.docusaurus`, `.history`, `.terraform`, `.serverless`, `.netlify`). On our own repository the walk read four copies of the code and stopped at 20,000 files before reaching it. Submodules and the rest of `.claude/` are still read.
+- Keys in a repository follow the same rule as the yof app: a browser setting flagged only for its secret-sounding name is not reported in tests, fixtures, mocks, examples, docs or demos; a value that starts like a placeholder (`demo`, `test`, `${...}`) or sits on a line that says `EXAMPLE` is not a key. Provider-shaped keys (`sk_live_`, `ghp_`, ...) are still reported everywhere. Applies to `yof check` and `yof_check_diff`.
+
 - Security: the zod bundled with `yof mcp` (through the MCP SDK) moves from 3.25.76 to 4.6.7. GHSA-mrhx-c7xc-m3w5 (memory exhaustion while validating oversized constrained arrays) affects every zod before 4.6.6 and no 3.x release fixes it. The MCP SDK 1.32.2 accepts `^3.25 || ^4.0`; yof's own code does not import zod. 0.3.0 on npm still bundles 3.25.76 until the next release.
 
 ## 0.3.0 (2026-11-09)

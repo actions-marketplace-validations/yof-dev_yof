@@ -23,7 +23,7 @@ import { runCheck, visibleIn, type CheckReport } from "../check";
 import { parseYofYml, type Profile } from "../config";
 import { runGit, type GitRunner } from "../files";
 import { checkPackages, isManifest, packageMessage, parseManifest, type PackageFetcher, type PackageIssue } from "../packages";
-import { KEY_RULES, scanText, type Severity } from "../secrets";
+import { KEY_RULES, isRepoFixture, scanText, type Severity } from "../secrets";
 import { KEY_WORDS, keyFixPrompt } from "../words";
 import { addedText, DiffError, parseUnifiedDiff, workingTreeChanges, type ChangedFile } from "./diff";
 import { remoteTool, RemoteError, type RemoteConfig } from "./remote";
@@ -179,7 +179,9 @@ async function checkDiff(ctx: ToolContext, args: Record<string, unknown>) {
   const files: ChangedFile[] = typeof args.diff === "string" ? parseUnifiedDiff(args.diff) : workingTreeChanges(root, cfg.ignore, ctx.git ?? runGit);
   const keys: Record<string, unknown>[] = [];
   for (const f of files) {
-    for (const m of scanText(addedText(f))) {
+    const added = addedText(f), addedLines = added.split(/\r?\n/);
+    for (const m of scanText(added)) {
+      if (isRepoFixture(m, f.path, addedLines[m.line - 1] ?? "")) continue;
       const rule = KEY_RULES[m.ruleId] ?? { name: m.ruleId, severity: "fix_week" as Severity };
       if (!visibleIn(cfg.profile as Profile, rule.severity)) continue;
       keys.push({ kind: "key", rule: m.ruleId, name: rule.name, severity: rule.severity, file: f.path, line: m.line, value: redactMasked(m.masked), why: KEY_WORDS[m.ruleId]?.why });
