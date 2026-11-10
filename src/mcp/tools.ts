@@ -45,7 +45,17 @@ export interface ToolContext {
   timeoutMs?: number;
 }
 
-export interface ToolDef { name: string; title: string; description: string; inputSchema: ToolSchema; remote: boolean; readOnlyHint: true }
+/**
+ * The four MCP tool annotations, always explicit booleans (MCP spec 2025-06-18, ToolAnnotations). Every tool here only
+ * reads: nothing on disk, in git or on the yof account is changed, so a repeat call has no further effect. openWorld is
+ * true for every tool because each one can reach the network by default: the scans look package names up on npm,
+ * PyPI and OSV (unless offline: true), yof_explain and yof_fix_prompt can ask the yof.io API, and the account tools
+ * always do.
+ */
+export interface ToolAnnotations { readOnlyHint: boolean; destructiveHint: boolean; idempotentHint: boolean; openWorldHint: boolean }
+const READ_NET: ToolAnnotations = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
+
+export interface ToolDef { name: string; title: string; description: string; inputSchema: ToolSchema; remote: boolean; annotations: ToolAnnotations }
 
 const ID = "^[0-9a-fA-F-]{36}$";
 const RULE = "^[a-z][a-z0-9_.-]{1,80}$";
@@ -54,22 +64,22 @@ const offline = { type: "boolean" as const, description: "Skip the package-regis
 
 export const TOOLS: readonly ToolDef[] = [
   {
-    name: "yof_check", title: "Check the project", remote: false, readOnlyHint: true,
+    name: "yof_check", title: "Check the project", remote: false, annotations: READ_NET,
     description: "Scan the project folder on this computer for leaked keys and made-up or risky packages. Runs locally; code is never uploaded. Use before you say a change is done.",
     inputSchema: { type: "object", additionalProperties: false, properties: { path: path("A folder inside the project, relative to its root (default: the whole project)."), offline } },
   },
   {
-    name: "yof_check_diff", title: "Check what changed", remote: false, readOnlyHint: true,
+    name: "yof_check_diff", title: "Check what changed", remote: false, annotations: READ_NET,
     description: "Scan only the lines that changed: pass a unified diff, or leave it out to scan the working tree's changes against the last commit (plus new files). Fast; run it after editing files.",
     inputSchema: { type: "object", additionalProperties: false, properties: { diff: { type: "string", description: "A unified diff (at most 1 MB). Leave out to use git.", maxLength: 1_000_000 }, offline } },
   },
   {
-    name: "yof_explain", title: "Explain a finding", remote: false, readOnlyHint: true,
+    name: "yof_explain", title: "Explain a finding", remote: false, annotations: READ_NET,
     description: "What a yof rule means, why it matters and the safe way to fix it, in plain words. Pass the rule id from a finding (for example secret.stripe_live or package.made_up).",
     inputSchema: { type: "object", additionalProperties: false, required: ["rule_id"], properties: { rule_id: { type: "string", description: "The rule id of a finding.", maxLength: 80, pattern: RULE } } },
   },
   {
-    name: "yof_fix_prompt", title: "Fix instructions", remote: false, readOnlyHint: true,
+    name: "yof_fix_prompt", title: "Fix instructions", remote: false, annotations: READ_NET,
     description: "Exact instructions to fix one finding, ready to follow. The secret value is never included, only a short prefix.",
     inputSchema: {
       type: "object", additionalProperties: false, required: ["rule_id"],
@@ -83,7 +93,7 @@ export const TOOLS: readonly ToolDef[] = [
     },
   },
   {
-    name: "yof_verify", title: "Verify a fix", remote: false, readOnlyHint: true,
+    name: "yof_verify", title: "Verify a fix", remote: false, annotations: READ_NET,
     description: "Re-scan one file and say whether a finding is fixed. Pass the file and the rule id (or leave the rule out to check the file for every key rule).",
     inputSchema: {
       type: "object", additionalProperties: false, required: ["file"],
@@ -96,7 +106,7 @@ export const TOOLS: readonly ToolDef[] = [
     },
   },
   {
-    name: "yof_findings", title: "Findings from your yof account", remote: true, readOnlyHint: true,
+    name: "yof_findings", title: "Findings from your yof account", remote: true, annotations: READ_NET,
     description: "Open findings from your yof.io account (your live site and connected GitHub repositories). Needs the yof key in this tool's config.",
     inputSchema: {
       type: "object", additionalProperties: false,
@@ -108,12 +118,12 @@ export const TOOLS: readonly ToolDef[] = [
     },
   },
   {
-    name: "yof_patch_status", title: "Patch pull requests", remote: true, readOnlyHint: true,
+    name: "yof_patch_status", title: "Patch pull requests", remote: true, annotations: READ_NET,
     description: "Patch's open fix pull requests and the state of their CI checks. Read only: nothing is merged or changed.",
     inputSchema: { type: "object", additionalProperties: false, properties: { app_id: { type: "string", description: "One app's id (default: all).", maxLength: 36, pattern: ID } } },
   },
   {
-    name: "yof_lessons", title: "Lessons from merged fixes", remote: true, readOnlyHint: true,
+    name: "yof_lessons", title: "Lessons from merged fixes", remote: true, annotations: READ_NET,
     description: "Short notes from Patch fixes that were merged in your projects: what was fixed, where, and whether the next check confirmed it. Use them to avoid the same mistake again.",
     inputSchema: { type: "object", additionalProperties: false, properties: { app_id: { type: "string", description: "One app's id (default: all).", maxLength: 36, pattern: ID } } },
   },
@@ -317,7 +327,7 @@ export async function callTool(ctx: ToolContext, name: string, rawArgs: unknown)
 const fail = (tool: string, message: string): ToolAnswer => ({ text: untrustedError(tool, message), data: { error: message }, isError: true });
 
 /** Tools available for this context (account tools are listed always: their answer explains how to connect). */
-export const toolList = () => TOOLS.map(({ remote, readOnlyHint, ...t }) => ({ ...t, annotations: { readOnlyHint, destructiveHint: false, openWorldHint: remote } }));
+export const toolList = () => TOOLS.map(({ remote: _remote, annotations, ...t }) => ({ ...t, annotations: { ...annotations } }));
 
 /** The root folder the server works in: the path passed to `yof mcp`, YOF_PROJECT_DIR, or the current folder. */
 export function projectRoot(cwd: string, arg: string | undefined, env: Record<string, string | undefined>): string {

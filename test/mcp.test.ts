@@ -112,6 +112,19 @@ describe("yof mcp: limits and strict arguments", () => {
       expect(t.annotations.readOnlyHint).toBe(true);
       expect(t.annotations.destructiveHint).toBe(false);
     }
+  });
+
+  it("all four MCP annotations are explicit booleans on every tool, matching what the handler does", () => {
+    // Every tool only reads (idempotent), and every tool can reach the network: package lookups on npm, PyPI and OSV,
+    // or the yof.io API.
+    const want = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
+    const list = toolList();
+    expect(list).toHaveLength(8);
+    for (const t of list) {
+      expect(Object.keys(t.annotations).sort()).toEqual(["destructiveHint", "idempotentHint", "openWorldHint", "readOnlyHint"]);
+      for (const v of Object.values(t.annotations)) expect(typeof v).toBe("boolean");
+      expect({ name: t.name, ...t.annotations }).toEqual({ name: t.name, ...want });
+    }
     expect(TOOLS.map((t) => t.name).sort()).toEqual(["yof_check", "yof_check_diff", "yof_explain", "yof_findings", "yof_fix_prompt", "yof_lessons", "yof_patch_status", "yof_verify"]);
   });
 });

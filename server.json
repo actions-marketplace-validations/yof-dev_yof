@@ -6,6 +6,12 @@
   "version": "0.3.1",
   "repository": { "url": "https://github.com/yof-dev/yof", "source": "github" },
   "websiteUrl": "https://yof.io/docs/ai-builders",
+  "icons": [
+    { "src": "https://yof.io/news/press-kit/yof-logo-light.png", "mimeType": "image/png", "sizes": ["1152x356"], "theme": "light" },
+    { "src": "https://yof.io/news/press-kit/yof-logo-dark.png", "mimeType": "image/png", "sizes": ["1152x356"], "theme": "dark" },
+    { "src": "https://yof.io/news/press-kit/yof-logo-light.svg", "mimeType": "image/svg+xml", "sizes": ["any"], "theme": "light" },
+    { "src": "https://yof.io/news/press-kit/yof-logo-dark.svg", "mimeType": "image/svg+xml", "sizes": ["any"], "theme": "dark" }
+  ],
   "packages": [
     {
       "registryType": "npm",
@@ -24,7 +30,7 @@
       "type": "streamable-http",
       "url": "https://mcp.yof.io/mcp",
       "headers": [
-        { "name": "Authorization", "description": "Bearer followed by the key the yof dashboard makes for this connection.", "isRequired": true, "isSecret": true }
+        { "name": "Authorization", "description": "Bearer followed by the key the yof dashboard makes for this connection. Needed to run any tool; the tool list can be read without it.", "isRequired": true, "isSecret": true }
       ]
     }
   ]
