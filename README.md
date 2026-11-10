@@ -19,7 +19,7 @@
 
 <p align="center">
 
-[![M8ven Score](https://m8ven.ai/badge/mcp/yof-dev-yof-13g2la?v=1a8862798a147668c1539ee48f620f49)](https://m8ven.ai/mcp/yof-dev-yof-13g2la?s=readme)
+[![M8ven Score](https://m8ven.ai/badge/mcp/yof-dev-yof-13g2la?v=1a8862798a147668c1539ee48f620f49)](https://m8ven.ai/mcp/yof-dev-yof-13g2la?s=readme) [![mcptry](https://mcptry.com/badge/io.yof/yof)](https://mcptry.com/servers/io.yof/yof)
 
 </p>
 
