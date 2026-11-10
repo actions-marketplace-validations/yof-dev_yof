@@ -19,7 +19,8 @@ export function createServer(ctx: ToolContext, version: string): Server {
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: toolList() }));
   server.setRequestHandler(CallToolRequestSchema, async (req) => {
     const a = await callTool(ctx, req.params.name, req.params.arguments);
-    return { content: [{ type: "text", text: a.text }], isError: a.isError };
+    // structuredContent matches the tool's outputSchema; the text (untrusted header + JSON) stays for every client.
+    return { content: [{ type: "text", text: a.text }], ...(a.structured ? { structuredContent: a.structured } : {}), isError: a.isError };
   });
   return server;
 }

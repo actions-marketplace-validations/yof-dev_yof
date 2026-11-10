@@ -35,3 +35,12 @@ export function untrusted(tool: string, data: unknown): string {
 export function untrustedError(tool: string, message: string): string {
   return untrusted(tool, { error: message });
 }
+
+/** The same last pass for structured data (MCP structuredContent): every string goes through redactText. */
+export function redactDeep(v: unknown, depth = 0): unknown {
+  if (depth > 8) return null;
+  if (typeof v === "string") return redactText(v);
+  if (Array.isArray(v)) return v.map((x) => redactDeep(x, depth + 1));
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v as Record<string, unknown>).map(([k, x]) => [k, redactDeep(x, depth + 1)]));
+  return v;
+}
