@@ -3,7 +3,7 @@
   "name": "io.yof/yof",
   "title": "yof",
   "description": "Checks AI-written code for leaked keys and made-up packages, on your machine. Never uploads code.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "repository": { "url": "https://github.com/yof-dev/yof", "source": "github" },
   "websiteUrl": "https://yof.io/docs/ai-builders",
   "icons": [
@@ -16,7 +16,7 @@
     {
       "registryType": "npm",
       "identifier": "@yof/cli",
-      "version": "0.3.1",
+      "version": "0.3.2",
       "runtimeHint": "npx",
       "transport": { "type": "stdio" },
       "packageArguments": [{ "type": "positional", "value": "mcp" }],

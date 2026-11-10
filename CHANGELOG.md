@@ -4,8 +4,15 @@ All notable changes to `@yof/cli`. The format follows Keep a Changelog, and vers
 
 ## Unreleased
 
+## 0.3.2 (2026-11-10)
+
+- MCP tools explain themselves: every tool description starts with what it does, says when to use it and which sibling tool to use instead, what leaves your computer (code never; package names and versions only, unless `offline` is true; the account tools need `YOF_API_KEY`) and what an empty result means. Parameter descriptions say their defaults and limits.
+- Every MCP tool declares an `outputSchema` and returns `structuredContent` next to the text answer (secrets stay redacted). An account tool now reports an error when yof.io answers without data, instead of an empty result.
+
 ## 0.3.1 (2026-11-09)
 
+- Every MCP tool states the four hints (`readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint`) explicitly.
+- Development: vitest 3.2.7 (fixes GHSA-5xrq-8626-4rwp and GHSA-82fw-gwwq-j7x9 in the test tooling; nothing ships to users).
 - `yof check` reads each file once: it no longer walks into linked git worktrees (a folder whose `.git` file points into `worktrees/`), `.claude/worktrees/`, or tool caches (`.cache`, `.parcel-cache`, `.wrangler`, `.angular`, `.expo`, `.nx`, `.docusaurus`, `.history`, `.terraform`, `.serverless`, `.netlify`). On our own repository the walk read four copies of the code and stopped at 20,000 files before reaching it. Submodules and the rest of `.claude/` are still read.
 - Keys in a repository follow the same rule as the yof app: a browser setting flagged only for its secret-sounding name is not reported in tests, fixtures, mocks, examples, docs or demos; a value that starts like a placeholder (`demo`, `test`, `${...}`) or sits on a line that says `EXAMPLE` is not a key. Provider-shaped keys (`sk_live_`, `ghp_`, ...) are still reported everywhere. Applies to `yof check` and `yof_check_diff`.
 

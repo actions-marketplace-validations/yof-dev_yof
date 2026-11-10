@@ -2,7 +2,7 @@
   "manifest_version": "0.3",
   "name": "yof",
   "display_name": "yof",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Checks code for leaked keys and made-up packages, on your computer.",
   "long_description": "yof scans a project folder for leaked keys and made-up or risky packages. Scans run on your computer and never upload code. With your yof key it can also read your yof.io findings and Patch pull requests (it sends only ids and rule ids).",
   "author": { "name": "yof", "url": "https://yof.io" },

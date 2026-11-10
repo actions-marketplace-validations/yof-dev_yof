@@ -1,6 +1,6 @@
 {
   "name": "@yof/cli",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Catch leaked keys and made-up packages before they ship, and attack your own app with your own test accounts. Rules only.",
   "license": "Apache-2.0",
   "author": "Mondaily",
