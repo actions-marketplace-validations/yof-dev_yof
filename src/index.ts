@@ -1,5 +1,5 @@
 /** @yof/cli as a library: the same rules the `yof` command runs. */
-export { scanText, maskSecret, maskAll, isPlaceholder, jwtPayload, KEY_RULES, type SecretMatch, type Severity, type ScanOptions } from "./secrets";
+export { scanText, maskSecret, maskAll, isPlaceholder, isRepoFixture, jwtPayload, KEY_RULES, type SecretMatch, type Severity, type ScanOptions } from "./secrets";
 export {
   checkPackages, packageFetcher, packageMessage, parsePackageJson, parsePyproject, parseRequirements, parseManifest, isManifest,
   lookalikeOf, editDistance, normalizePypi, pinnedVersion, PACKAGE_HOSTS,

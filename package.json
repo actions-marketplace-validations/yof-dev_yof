@@ -1,6 +1,6 @@
 {
   "name": "@yof/cli",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "Catch leaked keys and made-up packages before they ship, and attack your own app with your own test accounts. Rules only.",
   "license": "Apache-2.0",
   "author": "Mondaily",
@@ -68,7 +68,7 @@
     "@types/node": "^22.19.0",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
-    "vitest": "^2.1.9",
+    "vitest": "^3.2.7",
     "zod": "4.6.7"
   },
   "publishConfig": {

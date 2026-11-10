@@ -112,7 +112,53 @@ describe("yof mcp: limits and strict arguments", () => {
       expect(t.annotations.readOnlyHint).toBe(true);
       expect(t.annotations.destructiveHint).toBe(false);
     }
+  });
+
+  it("all four MCP annotations are explicit booleans on every tool, matching what the handler does", () => {
+    // Every tool only reads (idempotent), and every tool can reach the network: package lookups on npm, PyPI and OSV,
+    // or the yof.io API.
+    const want = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true };
+    const list = toolList();
+    expect(list).toHaveLength(8);
+    for (const t of list) {
+      expect(Object.keys(t.annotations).sort()).toEqual(["destructiveHint", "idempotentHint", "openWorldHint", "readOnlyHint"]);
+      for (const v of Object.values(t.annotations)) expect(typeof v).toBe("boolean");
+      expect({ name: t.name, ...t.annotations }).toEqual({ name: t.name, ...want });
+    }
     expect(TOOLS.map((t) => t.name).sort()).toEqual(["yof_check", "yof_check_diff", "yof_explain", "yof_findings", "yof_fix_prompt", "yof_lessons", "yof_patch_status", "yof_verify"]);
+  });
+});
+
+describe("yof mcp: tool definitions (Glama TDQS rubric)", () => {
+  const VERBS = new Set(["Scan", "Re-scan", "Explain", "Write", "List", "Report", "Start"]);
+  const names = TOOLS.map((t) => t.name);
+
+  it("every description starts with a verb and names at least one sibling tool for routing", () => {
+    for (const t of TOOLS) {
+      expect(VERBS.has(t.description.split(" ")[0]!), `${t.name}: ${t.description.slice(0, 40)}`).toBe(true);
+      expect(names.filter((n) => n !== t.name && t.description.includes(n)).length, t.name).toBeGreaterThan(0);
+    }
+  });
+
+  it("descriptions are short, plain and honest about what leaves the computer", () => {
+    for (const t of TOOLS) {
+      const sentences = t.description.split(/(?<=\.)\s+(?=[A-Z])/).length;
+      expect(sentences, t.name).toBeGreaterThanOrEqual(2);
+      expect(sentences, t.name).toBeLessThanOrEqual(5);
+      expect(t.description, t.name).not.toMatch(/—|–/);
+      expect(t.description, t.name).toContain("Returns");
+      if (t.remote) expect(t.description, t.name).toContain("YOF_API_KEY");
+      for (const p of Object.values(t.inputSchema.properties)) expect(p.description.length, t.name).toBeGreaterThan(20);
+    }
+    for (const n of ["yof_check", "yof_check_diff"]) expect(TOOLS.find((t) => t.name === n)!.description).toMatch(/never (leaves|uploaded)/);
+  });
+
+  it("every tool has an object outputSchema whose required fields it lists, and toolList sends it", () => {
+    for (const t of toolList()) {
+      expect(t.outputSchema?.type, t.name).toBe("object");
+      for (const k of t.outputSchema!.required ?? []) expect(Object.keys(t.outputSchema!.properties), `${t.name}.${k}`).toContain(k);
+      expect(t).not.toHaveProperty("remote");
+    }
   });
 });
 
@@ -208,6 +254,36 @@ describe("yof mcp: the MCP SDK server", () => {
     const text = (r.content as { type: string; text: string }[])[0]!.text;
     expect(text.startsWith(UNTRUSTED_HEADER)).toBe(true);
     expect(client.getInstructions()).toContain("untrusted data");
+    await client.close();
+  });
+
+  it("structured answers match each tool's outputSchema (the SDK client validates them); errors carry none", async () => {
+    const live = fakeStripeLive();
+    const root = tempDir({ "src/a.ts": `const k = "${live}";` });
+    const server = createServer(ctxFor(root), "0.0.0-test");
+    const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+    await server.connect(serverSide);
+    const client = new Client({ name: "test", version: "1" });
+    await client.connect(clientSide);
+    const { tools } = await client.listTools();   // caches the output schemas the client validates against
+    expect(tools.filter((t) => t.outputSchema).map((t) => t.name).sort()).toEqual(TOOLS.map((t) => t.name).sort());
+    const diff = `--- a/b.ts\n+++ b/b.ts\n@@ -0,0 +1 @@\n+const k = "${live}";`;
+    const calls: [string, Record<string, unknown>][] = [
+      ["yof_check", { offline: true }], ["yof_check_diff", { diff, offline: true }], ["yof_explain", { rule_id: "secret.stripe_live" }],
+      ["yof_explain", { rule_id: "package.made_up" }], ["yof_fix_prompt", { rule_id: "secret.stripe_live", file: "src/a.ts" }],
+      ["yof_fix_prompt", { rule_id: "package.lookalike", package: "reqeusts" }], ["yof_verify", { file: "src/a.ts" }],
+      ["yof_verify", { file: "src/a.ts", rule_id: "package.made_up", package: "nope", offline: true }],
+    ];
+    for (const [name, args] of calls) {
+      const r = await client.callTool({ name, arguments: args });
+      expect(r.isError, name).toBeFalsy();
+      const s = r.structuredContent as Record<string, unknown>;
+      for (const k of TOOLS.find((t) => t.name === name)!.outputSchema!.required ?? []) expect(s, `${name}.${k}`).toHaveProperty(k);
+      expect(JSON.stringify(s)).not.toContain(live);
+    }
+    const bad = await client.callTool({ name: "yof_check", arguments: { path: "../.." } });
+    expect(bad.isError).toBe(true);
+    expect(bad.structuredContent).toBeUndefined();
     await client.close();
   });
 

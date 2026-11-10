@@ -208,6 +208,38 @@ function snippetAt(text: string, index: number, length: number): string {
   return `${maskAll(before)}${maskSecret(value)}${maskAll(after)}`.replace(/\s+/g, " ").slice(0, 140);
 }
 
+/**
+ * Paths whose values are fake on purpose: tests, fixtures, mocks, examples, docs, demos and .env.example-style files.
+ * The same list as the yof app's repository check (yof inside), so the CLI and the app agree on a repository.
+ */
+export const FIXTURE_PATH = /(?:^|\/)(?:__tests__|__mocks__|__fixtures__|__snapshots__|tests?|spec|specs|fixtures?|mocks?|examples?|samples?|docs?|testdata|e2e|cypress|playwright)\/|\.(?:test|spec|stories|story)\.[cm]?[jt]sx?$|\.(?:md|mdx|rst|txt)$|(?:^|\/)\.env\.(?:example|sample|template|dist|defaults?)$/i;
+/** Files that steer an AI coding tool hold real values even as .md or in a docs folder: always read like code. */
+const AI_CONFIG_FILE = /(?:^|\/)(?:\.cursorrules|\.windsurfrules|\.roorules|\.clinerules|CLAUDE(?:\.local)?\.md|AGENTS\.md|GEMINI\.md|\.?mcp\.json|mcp_config\.json|claude_desktop_config\.json)$|(?:^|\/)\.cursor\/rules\/|(?:^|\/)\.github\/copilot-instructions\.md$|(?:^|\/)\.(?:cursor|vscode|windsurf|roo|kiro|amazonq)\/mcp(?:_config)?\.json$/;
+/** The masked start of a value that is a placeholder ("demo...", "test...", "${...}", "1234..."). Same as the app. */
+const FAKE_START = /x{4,}|\*{3,}|0{6,}|1234|abcd|example|sample|dummy|fake|placeholder|changeme|change_me|your[_-]|<[^>]*>|\$\{|^(?:test|demo|secret|password|token)/i;
+
+/**
+ * The repository rule the yof app applies to keys found in a repository (0.3.1). Before it, `yof check` on our own
+ * repository listed 14 values the app dropped, all fixtures:
+ *   - "a browser setting whose NAME says secret" is a guess from the name: not in tests, docs, examples and demos;
+ *     provider-shaped keys (sk_live_, ghp_, ...) are still reported there. Elsewhere such a setting is reported even
+ *     when its value looks like a placeholder (the setting itself is the problem), unless the value is a "\${...}" template;
+ *   - a value whose visible start is a placeholder ("demo", "test", "${...}") is not a key;
+ *   - a line that says EXAMPLE (AWS's own documented example keys) is not a key.
+ */
+export function isRepoFixture(m: Pick<SecretMatch, "ruleId" | "masked">, path: string, lineText: string): boolean {
+  const start = m.masked.replace(/•+$/, "");
+  if (m.ruleId === "secret.named_env") {
+    if (FIXTURE_PATH.test(path) && !AI_CONFIG_FILE.test(path)) return true;
+    // Outside tests, docs and demos the finding is the setting itself: a secret-named value shipped to the browser is
+    // the problem whatever the value looks like, so a placeholder-looking value ("demo-...", the yof demo's own plant)
+    // is still reported. Only a template ("\${...}") is not a value at all.
+    return /\$\{/.test(start) || /EXAMPLE/.test(lineText);
+  }
+  if (FAKE_START.test(start)) return true;
+  return /EXAMPLE/.test(lineText);
+}
+
 export interface ScanOptions {
   /** Skip values that are clearly placeholders (sk_live_xxxx…, …your_key_here…). Default true. */
   ignorePlaceholders?: boolean;

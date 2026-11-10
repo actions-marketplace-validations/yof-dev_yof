@@ -17,6 +17,12 @@
   <a href="https://yof.io"><img alt="yof.io" src="https://img.shields.io/badge/web-yof.io-0c0d11"></a>
 </p>
 
+<p align="center">
+
+[![M8ven Score](https://m8ven.ai/badge/mcp/yof-dev-yof-13g2la?v=1a8862798a147668c1539ee48f620f49)](https://m8ven.ai/mcp/yof-dev-yof-13g2la?s=readme) [![mcptry](https://mcptry.com/badge/io.yof/yof)](https://mcptry.com/servers/io.yof/yof)
+
+</p>
+
 **Catch leaked keys and made-up packages before they ship.**
 
 `yof` (yof by sōtem) is yof on your laptop: a small command-line check for apps built with AI assistants (and apps built any other way). It finds secret keys sitting in your code and dependencies that don't exist or imitate popular ones, before they reach a commit, a pull request or production.
@@ -341,4 +347,4 @@ Issues and pull requests are welcome, especially new key rules with a documented
 
 ## License
 
-Apache-2.0. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE). yof is made by Mondaily.
+Apache-2.0. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE). yof is published by Mondaily Ltd.

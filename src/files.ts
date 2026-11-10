@@ -8,7 +8,31 @@ import { join, relative, sep } from "node:path";
 import { matchesGitignore, matchesIgnore } from "./config";
 
 /** Folders never walked into. */
-export const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", ".next", ".nuxt", ".svelte-kit", ".turbo", ".vercel", "coverage", ".venv", "venv", "__pycache__", ".yarn", ".pnpm-store"]);
+export const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", ".next", ".nuxt", ".svelte-kit", ".turbo", ".vercel", "coverage", ".venv", "venv", "__pycache__", ".yarn", ".pnpm-store",
+  // Hidden tool folders that hold caches or copies of the project, never code of their own (0.3.1).
+  ".cache", ".parcel-cache", ".wrangler", ".angular", ".expo", ".nx", ".docusaurus", ".history", ".terraform", ".serverless", ".netlify"]);
+/**
+ * Folders that are copies of the project made by a coding tool: Claude Code keeps a full git worktree per agent in
+ * .claude/worktrees/, so a check read every file once per worktree and stopped at MAX_FILES before the real code
+ * (measured on our own repository, 2026-11-09). The rest of .claude/ (settings, MCP config) is still read.
+ */
+const TOOL_COPY_PATH = /(?:^|\/)\.claude\/worktrees(?:\/|$)/;
+/** A `.git` FILE that points into another repository's worktrees folder: this folder is a linked git worktree. */
+const WORKTREE_GITDIR = /^gitdir:\s*.*[\\/]worktrees[\\/][^\\/\s]+\s*$/m;
+
+/**
+ * True when `dir` (a folder below the one being checked) is a linked git worktree: its `.git` is a file whose gitdir
+ * points into a `worktrees/` folder. Its files are a second copy of a branch, so they are not read again. A submodule
+ * (gitdir into `modules/`) and a plain nested repository are still read: their code is part of the project.
+ */
+export function isLinkedWorktree(dir: string): boolean {
+  try {
+    const dotGit = join(dir, ".git");
+    const st = lstatSync(dotGit);
+    if (!st.isFile() || st.size > 4096) return false;
+    return WORKTREE_GITDIR.test(readFileSync(dotGit, "utf8"));
+  } catch { return false; }
+}
 /** Files bigger than this are skipped. */
 export const MAX_FILE_BYTES = 1_000_000;
 /** A walk stops after this many files (it says so). */
@@ -24,7 +48,7 @@ export interface FileSet { files: SourceFile[]; skipped: number; truncated: bool
 export const looksBinary = (buf: Buffer) => buf.subarray(0, 8000).includes(0);
 
 export function shouldSkipPath(path: string, ignore: readonly string[], gitignore: readonly string[] = []): boolean {
-  if (path.split("/").some((s) => SKIP_DIRS.has(s))) return true;
+  if (path.split("/").some((s) => SKIP_DIRS.has(s)) || TOOL_COPY_PATH.test(path)) return true;
   if (LOCKFILE.test(path) || BINARY_EXT.test(path)) return true;
   if (ignore.some((g) => matchesIgnore(path, g))) return true;
   return gitignore.some((g) => matchesGitignore(path, g));
@@ -50,7 +74,7 @@ export function walkFiles(root: string, ignore: readonly string[] = [], gitignor
       try { st = lstatSync(full); } catch { continue; }
       if (st.isSymbolicLink()) continue;
       if (st.isDirectory()) {
-        if (SKIP_DIRS.has(name) || ignore.some((g) => matchesIgnore(rel, g) || matchesIgnore(`${rel}/`, g)) || gitignore.some((g) => matchesGitignore(`${rel}/\0`, g))) { skipped++; continue; }
+        if (SKIP_DIRS.has(name) || TOOL_COPY_PATH.test(rel) || isLinkedWorktree(full) || ignore.some((g) => matchesIgnore(rel, g) || matchesIgnore(`${rel}/`, g)) || gitignore.some((g) => matchesGitignore(`${rel}/\0`, g))) { skipped++; continue; }
         visit(full);
         continue;
       }

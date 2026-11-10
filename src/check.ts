@@ -11,7 +11,7 @@ import { join, resolve } from "node:path";
 import { parseGitignore, parseYofYml, type Profile } from "./config";
 import { gitTopLevel, runGit, stagedAddedText, stagedFiles, walkFiles, type GitRunner, type SourceFile } from "./files";
 import { checkPackages, isManifest, packageMessage, parseManifest, type Dependency, type Ecosystem, type PackageFetcher, type PackageFinding, type PackageIssue } from "./packages";
-import { KEY_RULES, scanText, type Severity } from "./secrets";
+import { KEY_RULES, isRepoFixture, scanText, type Severity } from "./secrets";
 import { ACCEPTED_FILE, acceptFingerprint, acceptanceFor, parseAccepted, type Acceptance } from "./accepted";
 
 /** Most dependencies checked against the registries in one run. */
@@ -126,6 +126,7 @@ export async function runCheck(opts: CheckOptions = {}): Promise<CheckReport> {
     for (const m of scanText(f.content)) {
       const rule = KEY_RULES[m.ruleId] ?? { name: m.ruleId, severity: "fix_week" as Severity };
       const text = lines[m.line - 1] ?? "";
+      if (isRepoFixture(m, f.path, text)) continue;   // the app's repository rule (0.3.1)
       const accepted = acceptanceFor(acceptedList, m.ruleId, f.path, text);
       found.push({ file: f.path, line: m.line, column: m.column, rule: m.ruleId, name: rule.name, severity: rule.severity, masked: m.masked, fingerprint: acceptFingerprint(m.ruleId, f.path, text), ...(accepted ? { accepted } : {}), hash: m.hash });
     }
