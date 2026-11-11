@@ -3,7 +3,10 @@
  * name in the config, and records each finding together with the exact steps that proved it.
  *
  *   auth     each signed-in route, without a sign-in (and with a broken token): the same data back = attack.auth_bypass
- *   rbac     each admin route as a normal member: the admin answer back = attack.rbac_escalation
+ *   rbac     each admin route as a normal member: the admin answer back = attack.rbac_escalation. With a "viewer"
+ *            account (a member who may only read, in account A's tenant): each admin route as the viewer, and, in a
+ *            full run, the viewer tries to create a test record, to change one of account A's and to delete one of
+ *            account A's = attack.viewer_escalation. Only the run's own test records are touched, and deleted.
  *   tenant   account A creates a test record; account B reads it by id (attack.tenant_read), lists it, and changes it
  *            (attack.tenant_write, seen when A reads the change). The record is deleted at the end, always.
  *   ai       the app's own assistant: hidden-instruction extraction, a typed injection, an injection hidden in a record
@@ -24,7 +27,7 @@
 import { randomBytes } from "node:crypto";
 import { maskAll } from "../secrets";
 import { ATTACK_GROUPS, ATTACK_RULE_BY_ID, type AttackGroup, type AttackSeverity } from "./catalog";
-import { fill, type AccountSpec, type AiSpec, type AttackConfig, type Budget, type ObjectSpec, type Role } from "./config";
+import { ENV_PREFIX, fill, isLoginAccount, ROLES, type AccountSpec, type AiSpec, type AttackConfig, type Budget, type ObjectSpec, type Role } from "./config";
 import { AttackClient, BudgetError, RefusedError, StoppedError, type As, type Exchange, type FetchFn, type HttpAnswer, type Method } from "./http";
 import {
   BURST_MESSAGE, BURST_PARALLEL, BURST_SIZE, CARRIERS, LONG_OUTPUT_PROBE, UNBOUNDED_CHARS, aiProbes, aiProbesY11, burstLimited, carrierDocument,
@@ -33,6 +36,7 @@ import {
 } from "./probes";
 import type { Mode, ProofOk } from "./proof";
 import type { ReplaySpec, ReplayStep } from "./replay";
+import { totpCode } from "./totp";
 
 export const REDIRECT_PROBE_HOST = "yof.io";
 const REDIRECT_PROBE = "https://yof.io/yof-attack-redirect-check";
@@ -49,7 +53,7 @@ export interface AttackFinding {
   route: string;
   as: As;
   status: number;
-  /** At most 200 characters, keys and email addresses masked. */
+  /** What was seen, in yof's own words: never a piece of the answer itself. At most 200 characters, masked. */
   evidence: string;
   meta: Record<string, string>;
   replay: ReplaySpec;
@@ -92,8 +96,36 @@ export interface RunOptions {
 
 const EMAIL_G = /[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
 const maskEmail = (e: string) => { const [u, d] = e.split("@"); return `${(u ?? "").slice(0, 1)}•••@${d ?? ""}`; };
-/** Evidence as it may be shown or stored: keys and emails masked, whitespace folded, 200 characters at most. */
-export const maskEvidence = (s: string) => maskAll(s.replace(EMAIL_G, maskEmail)).replace(/\s+/g, " ").trim().slice(0, 200);
+/** A phone number or another long run of digits (a card, an account number): only its last two digits are kept. */
+const DIGITS_G = /\+?\d[\d\s().-]{6,}\d/g;
+const maskDigits = (d: string) => `•••${d.replace(/\D/g, "").slice(-2)}`;
+/** Evidence as it may be shown or stored: keys, emails and long numbers masked, whitespace folded, 200 characters at most. */
+export const maskEvidence = (s: string) => maskAll(s.replace(EMAIL_G, maskEmail)).replace(DIGITS_G, maskDigits).replace(/\s+/g, " ").trim().slice(0, 200);
+
+/** A field name that is safe to show: a plain identifier. A name, an address or an id used as a key is not shown. */
+const FIELD = /^[A-Za-z_][A-Za-z0-9_-]{0,29}$/;
+/**
+ * What an answer looked like, WITHOUT what it said. Evidence used to hold the first 200 characters of the answer, and
+ * masking only knows keys and email addresses: a name, a phone number or a home address from a real record went into
+ * the report, the upload and the yof app (security audit, 11 Nov 2026). Now only the shape is kept: the kind of answer,
+ * its size and the names of its fields. Never a value. Pure.
+ */
+export function answerShape(body: string): string {
+  const size = `${body.length} characters`;
+  let v: unknown;
+  try { v = JSON.parse(body); } catch { return `text, ${size}`; }
+  const fields = (o: object) => {
+    const keys = Object.keys(o);
+    const shown = keys.filter((k) => FIELD.test(k)).slice(0, 8);
+    return `${keys.length} ${keys.length === 1 ? "field" : "fields"}${shown.length ? ` (${shown.join(", ")}${keys.length > shown.length ? ", ..." : ""})` : ""}`;
+  };
+  if (Array.isArray(v)) {
+    const first = v.find((x) => x && typeof x === "object" && !Array.isArray(x)) as object | undefined;
+    return `a JSON list of ${v.length} ${v.length === 1 ? "item" : "items"}${first ? `, the first with ${fields(first)}` : ""}, ${size}`;
+  }
+  if (v && typeof v === "object") return `a JSON object with ${fields(v)}, ${size}`;
+  return `a JSON ${v === null ? "null" : typeof v}, ${size}`;
+}
 
 const ok = (s: number) => s >= 200 && s < 300;
 const DENIED = /\b(forbidden|unauthori[sz]ed|not allowed|access denied|permission denied|no permission|sign ?in|log ?in|login required)\b/i;
@@ -127,28 +159,46 @@ class Auth {
   private cache = new Map<Role, Record<string, string> | null>();
   readonly cookieFlags = new Map<Role, string[]>();
   constructor(private cfg: AttackConfig, private env: Record<string, string | undefined>, private http: AttackClient) {}
-  has(role: Role): boolean { return !!this.cfg.accounts[role as "a"]; }
+  has(role: Role): boolean { return !!this.cfg.accounts[role]; }
+  /** An account value from the environment. Only YOF_ATTACK_* names are ever read (audit 3.9), whatever built the config. */
+  private read(name: string): string | undefined { return name.startsWith(ENV_PREFIX) ? this.env[name] : undefined; }
+  /** A role whose session can expire (a login account): it can be signed in again on a 401. */
+  refreshable(role: As): boolean { const a = role === "anon" ? undefined : this.cfg.accounts[role]; return !!a && isLoginAccount(a); }
   /** The headers already known for a role (clean-up never signs in again: a role that made a record has them). */
   cached(role: As): Record<string, string> | null { return role === "anon" ? {} : this.cache.get(role) ?? null; }
+  /** Forget a role's session so the next headers() signs it in fresh (used when its session expired). */
+  forget(role: As): void { if (role !== "anon") this.cache.delete(role); }
   async headers(role: As): Promise<Record<string, string> | null> {
     if (role === "anon") return {};
     if (this.cache.has(role)) return this.cache.get(role)!;
-    const acc = this.cfg.accounts[role] as AccountSpec | undefined;
+    const acc = this.cfg.accounts[role];
+    // The static headers a role carries (Y23): one or more env-held values (a token, a session cookie, a workspace
+    // header). A login account's `headers` are the EXTRA headers next to the session it signs in for.
+    const staticHeaders = (): Record<string, string> | null => {
+      const out: Record<string, string> = {};
+      for (const p of acc!.headers) { const v = this.read(p.env); if (!v) return null; out[p.header] = v; }
+      return out;
+    };
     let h: Record<string, string> | null = null;
-    if (acc && "env" in acc) {
-      const v = this.env[acc.env];
-      h = v ? { [acc.header]: v } : null;
+    if (acc && !isLoginAccount(acc)) {
+      h = staticHeaders();
     } else if (acc) {
-      const email = this.env[acc.emailEnv], pw = this.env[acc.passwordEnv];
-      if (email && pw) {
-        const r = await this.http.send(role, "POST", acc.login.path, { body: fill(acc.login.body, { email, password: pw }), purpose: "login" });
+      const email = this.read(acc.emailEnv), pw = this.read(acc.passwordEnv);
+      // A sign-in recipe (owner 2026-11-11) runs fresh here, with a one-time code when the account uses one, so a
+      // session that expires (e.g. a 15-minute cookie) is signed in again instead of a fixed header secret.
+      const totp: { totp?: string } = acc.login.totpEnv ? { totp: totpCode(this.read(acc.login.totpEnv) ?? "") } : {};
+      if (email && pw && (!acc.login.totpEnv || totp.totp)) {
+        const r = await this.http.send(role, "POST", acc.login.path, { body: fill(acc.login.body, { email, password: pw, ...(totp.totp ? { totp: totp.totp } : {}) }), purpose: "login" });
         if (ok(r.status)) {
-          if (acc.login.tokenPath) { const t = readPath(r.body, acc.login.tokenPath); h = t ? { [acc.login.header ?? "Authorization"]: `${acc.login.prefix ?? ""}${t}` } : null; }
-          else {
-            const sc = setCookies(r.headers);
-            this.cookieFlags.set(role, sc);
-            const c = sc.map((x) => x.split(";")[0]).filter(Boolean).join("; ");
-            h = c ? { Cookie: c } : null;
+          const extra = staticHeaders();
+          if (extra !== null) {
+            if (acc.login.tokenPath) { const t = readPath(r.body, acc.login.tokenPath); h = t ? { [acc.login.header ?? "Authorization"]: `${acc.login.prefix ?? ""}${t}`, ...extra } : null; }
+            else {
+              const sc = setCookies(r.headers);
+              this.cookieFlags.set(role, sc);
+              const c = sc.map((x) => x.split(";")[0]).filter(Boolean).join("; ");
+              h = c ? { Cookie: c, ...extra } : null;
+            }
           }
         }
       }
@@ -165,7 +215,7 @@ export async function runAttack(o: RunOptions): Promise<AttackRunResult> {
   const random = o.random ?? (() => randomBytes(6).toString("hex"));
   const postPaths = [
     ...cfg.objects.map((x) => x.create.path), ...cfg.ai.map((a) => a.path), ...cfg.ai.flatMap((a) => (a.ingest ? [a.ingest.create.path] : [])),
-    ...(["a", "b", "admin"] as const).flatMap((r) => { const acc = cfg.accounts[r as "a"]; return acc && "login" in acc ? [acc.login.path] : []; }),
+    ...ROLES.flatMap((r) => { const acc = cfg.accounts[r]; return acc && isLoginAccount(acc) ? [acc.login.path] : []; }),
   ];
   const http = new AttackClient({ origin: o.proof.origin, budget: o.budget ?? cfg.budget, fetch: o.fetch, now: o.now, sleep: o.sleep, postPaths, signal: o.signal });
   const auth = new Auth(cfg, env, http);
@@ -182,7 +232,15 @@ export async function runAttack(o: RunOptions): Promise<AttackRunResult> {
   const send = async (as: As, method: Method, path: string, init: { body?: string; purpose?: "read" | "login" | "create" | "ai" | "owned" | "cleanup"; headers?: Record<string, string> } = {}): Promise<HttpAnswer | null> => {
     const h = await auth.headers(as);
     if (h === null) return null;
-    return http.send(as, method, path, { ...init, headers: { ...h, ...(init.headers ?? {}) } });
+    const r = await http.send(as, method, path, { ...init, headers: { ...h, ...(init.headers ?? {}) } });
+    // A session that has expired answers 401/403: sign the role in again once and retry (owner 2026-11-11). Only a
+    // login account is refreshed, and never a create (its record must stay known for clean-up) or the clean-up itself.
+    if ((r.status === 401 || r.status === 403) && auth.refreshable(as) && init.purpose !== "create" && init.purpose !== "cleanup") {
+      auth.forget(as);
+      const fresh = await auth.headers(as);
+      if (fresh) return http.send(as, method, path, { ...init, headers: { ...fresh, ...(init.headers ?? {}) } });
+    }
+    return r;
   };
   const report = (ruleId: string, x: { method: Method; route: string; as: As; status: number; evidence: string; meta?: Record<string, string>; replay: Omit<ReplaySpec, "ruleId" | "title"> }) => {
     const rule = ATTACK_RULE_BY_ID[ruleId]!;
@@ -206,10 +264,13 @@ export async function runAttack(o: RunOptions): Promise<AttackRunResult> {
 
   // ── auth ──────────────────────────────────────────────────────────────────────────────────────
   const authGroup = async () => {
-    const targets = [...cfg.routes.map((p) => ({ p, owner: "a" as Role })), ...cfg.admin.map((p) => ({ p, owner: (auth.has("admin") ? "admin" : "a") as Role }))]
+    // A signed-in owner is needed to compare the signed-out answer against. Prefer A; fall back to admin.
+    const owner: Role | null = auth.has("a") ? "a" : auth.has("admin") ? "admin" : null;
+    if (!owner) { notes.push("skipped:auth:no test account to sign in with (add account A)"); return "skipped" as const; }
+    const targets = [...cfg.routes.map((p) => ({ p, owner })), ...cfg.admin.map((p) => ({ p, owner: (auth.has("admin") ? "admin" : owner) as Role }))]
       .filter((t) => !t.p.includes("{id}") && routeOk(t.p));
     if (!targets.length) return "skipped" as const;
-    const header = (() => { const acc = cfg.accounts.a; return "env" in acc ? acc.header : acc.login.header ?? "Authorization"; })();
+    const header = (() => { const acc = cfg.accounts[owner]!; return isLoginAccount(acc) ? acc.login.header ?? "Authorization" : acc.headers[0]?.header ?? "Authorization"; })();
     const variants: { label: string; headers?: Record<string, string> }[] = [{ label: "no sign-in" }, ...(header.toLowerCase() === "authorization" ? [{ label: "a broken token", headers: { Authorization: "Bearer undefined" } }] : [])];
     for (const t of targets) {
       const base = await send(t.owner, "GET", t.p);
@@ -219,7 +280,7 @@ export async function runAttack(o: RunOptions): Promise<AttackRunResult> {
         const x = await send("anon", "GET", t.p, { headers: v.headers });
         if (!x || !ok(x.status) || !sameData(base.body, x.body)) continue;
         if (!(await confirm(async () => { const y = await send("anon", "GET", t.p, { headers: v.headers }); return !!y && ok(y.status) && sameData(base.body, y.body); }))) continue;
-        report("attack.auth_bypass", { method: "GET", route: t.p, as: "anon", status: x.status, evidence: x.body, meta: { request: `GET ${t.p} with ${v.label}`, status: String(x.status) },
+        report("attack.auth_bypass", { method: "GET", route: t.p, as: "anon", status: x.status, evidence: `the same data a signed-in account gets came back: ${answerShape(x.body)}`, meta: { request: `GET ${t.p} with ${v.label}`, status: String(x.status) },
           replay: { vars: [], accounts: {}, steps: [{ as: "anon", method: "GET", path: t.p, ...(v.headers ? { headers: v.headers } : {}), expect: { kind: "denied" } }] } });
         break;
       }
@@ -230,8 +291,15 @@ export async function runAttack(o: RunOptions): Promise<AttackRunResult> {
   // ── rbac ──────────────────────────────────────────────────────────────────────────────────────
   const rbacGroup = async () => {
     const routes = cfg.admin.filter((p) => !p.includes("{id}") && routeOk(p));
-    if (!routes.length) return "skipped" as const;
-    for (const p of routes) {
+    // The read-only member (Y24): admin routes, and in a full run the config's objects. A light run writes nothing.
+    const viewerObjs = mode === "full" && auth.has("viewer") ? cfg.objects.filter((x) => routeOk(x.read) || routeOk(x.create.path)) : [];
+    const viewerPart = auth.has("viewer") && (routes.length > 0 || viewerObjs.length > 0);
+    const memberPart = routes.length > 0 && auth.has("a");
+    if (!memberPart && !viewerPart) {
+      if (routes.length) notes.push("skipped:rbac:no member account to open admin routes with (add account A)");
+      return "skipped" as const;
+    }
+    for (const p of memberPart ? routes : []) {
       if (findings.some((f) => f.ruleId === "attack.auth_bypass" && f.route === p)) continue;
       const admin = auth.has("admin") ? await send("admin", "GET", p) : null;
       const m = await send("a", "GET", p);
@@ -240,16 +308,99 @@ export async function runAttack(o: RunOptions): Promise<AttackRunResult> {
       const looksAdmin = admin && ok(admin.status) ? sameData(admin.body, m.body) : leaves(m.body).length > 0;
       if (!looksAdmin) continue;
       if (!(await confirm(async () => { const y = await send("a", "GET", p); return !!y && ok(y.status) && (admin && ok(admin.status) ? sameData(admin.body, y.body) : leaves(y.body).length > 0); }))) continue;
-      report("attack.rbac_escalation", { method: "GET", route: p, as: "a", status: m.status, evidence: m.body, meta: { request: `GET ${p} as a member`, status: String(m.status) },
+      report("attack.rbac_escalation", { method: "GET", route: p, as: "a", status: m.status, evidence: `a member got the admin answer: ${answerShape(m.body)}`, meta: { request: `GET ${p} as a member`, status: String(m.status) },
         replay: { vars: [], accounts: accounts("a"), steps: [{ as: "a", method: "GET", path: p, expect: { kind: "denied" } }] } });
     }
+    if (viewerPart) await viewerTests(routes, viewerObjs);
     return "done" as const;
+  };
+
+  // ── rbac: the read-only member (attack.viewer_escalation) ─────────────────────────────────────
+  const VIEWER_RULE = "attack.viewer_escalation";
+  const viewerTests = async (routes: string[], objs: ObjectSpec[]) => {
+    if ((await auth.headers("viewer")) === null) { notes.push("no_account:viewer"); return; }
+    for (const p of routes) {
+      // One cause, one finding: a route already open to nobody or to every member is reported there.
+      if (findings.some((f) => (f.ruleId === "attack.auth_bypass" || f.ruleId === "attack.rbac_escalation") && f.route === p)) continue;
+      const admin = auth.has("admin") ? await send("admin", "GET", p) : null;
+      const looksAdmin = (r: HttpAnswer | null) => !!r && ok(r.status) && !(DENIED.test(r.body.slice(0, 2000)) && r.body.length < 2000)
+        && (admin && ok(admin.status) ? sameData(admin.body, r.body) : leaves(r.body).length > 0);
+      const v = await send("viewer", "GET", p);
+      if (!looksAdmin(v)) continue;
+      if (!(await confirm(async () => looksAdmin(await send("viewer", "GET", p))))) continue;
+      report(VIEWER_RULE, { method: "GET", route: p, as: "viewer", status: v!.status, evidence: `a read-only member got the admin answer: ${answerShape(v!.body)}`, meta: { request: `GET ${p} as the read-only member`, status: String(v!.status) },
+        replay: { vars: [], accounts: accounts("viewer"), steps: [{ as: "viewer", method: "GET", path: p, expect: { kind: "denied" } }] } });
+    }
+    for (const spec of objs) await viewerObject(spec);
+  };
+  const viewerObject = async (spec: ObjectSpec) => {
+    const idVar = (p: string) => p.split("{id}").join("{{id}}");
+    // Create: the viewer asks to make a record. A record that does get made is the run's own and is deleted at the end.
+    const made = async (): Promise<{ hit: boolean; status: number }> => {
+      if (!http.roomToCreate) throw new BudgetError("requests");
+      const r = await send("viewer", "POST", spec.create.path, { body: fill(spec.create.body, { marker: `yofmarker${random()}` }), purpose: "create" });
+      if (!r || !ok(r.status)) return { hit: false, status: r?.status ?? 0 };
+      const id = readPath(r.body, spec.idPath);
+      if (!id || id.length > 200) { notes.push(`no_id:${spec.create.path}`); return { hit: false, status: r.status }; }
+      http.own(id);
+      cleanupList.push({ as: "viewer", path: withId(spec.delete, id) });
+      return { hit: true, status: r.status };
+    };
+    const first = await made();
+    if (first.hit && await confirm(async () => (await made()).hit)) {
+      report(VIEWER_RULE, { method: "POST", route: spec.create.path, as: "viewer", status: first.status, evidence: `a read-only member created a test record with POST ${spec.create.path}`, meta: { request: `POST ${spec.create.path} as the read-only member`, status: String(first.status) },
+        replay: { vars: ["marker"], accounts: accounts("viewer"), steps: [
+          { as: "viewer", method: "POST", path: spec.create.path, body: spec.create.body, save: { name: "id", from: spec.idPath }, expect: { kind: "denied" } },
+          { as: "viewer", method: "DELETE", path: idVar(spec.delete), cleanup: true }] } });
+    }
+    // Change and delete need a record of account A for the viewer to try on.
+    if (!auth.has("a")) { notes.push("viewer_needs_account_a:the change and delete tests need a record of account A"); return; }
+    const setup: ReplayStep[] = [{ as: "a", method: "POST", path: spec.create.path, body: spec.create.body, save: { name: "id", from: spec.idPath }, setup: true }];
+    const cleanup: ReplayStep = { as: "a", method: "DELETE", path: idVar(spec.delete), cleanup: true };
+    if (spec.update) {
+      const up = spec.update;
+      const id = await create("a", spec, { marker: `yofmarker${random()}` });
+      if (id) {
+        const changedBy = async () => {
+          const m2 = `yofchange${random()}`;
+          await send("viewer", up.method, withId(up.path, id), { body: fill(up.body, { marker: m2 }), purpose: "owned" });
+          const after = await send("a", "GET", withId(spec.read, id));
+          return { hit: !!after && ok(after.status) && after.body.includes(m2), status: after?.status ?? 0 };
+        };
+        const one = await changedBy();
+        if (one.hit && await confirm(async () => (await changedBy()).hit)) {
+          report(VIEWER_RULE, { method: up.method, route: up.path, as: "viewer", status: one.status, evidence: `a read-only member changed a test record of account A with ${up.method} ${up.path}`, meta: { request: `${up.method} ${up.path} as the read-only member, then GET ${spec.read} as account A`, status: String(one.status) },
+            replay: { vars: ["marker", "change"], accounts: accounts("a", "viewer"), steps: [...setup,
+              { as: "viewer", method: up.method, path: idVar(up.path), body: up.body.split("{{marker}}").join("{{change}}") },
+              { as: "a", method: "GET", path: idVar(spec.read), expect: { kind: "not_contains", value: "{{change}}" } }, cleanup] } });
+        }
+      }
+    }
+    // Delete: account A makes a record, the viewer asks to delete it, account A looks for it. Twice, on two records.
+    const removed = async (): Promise<{ hit: boolean; status: number }> => {
+      const id = await create("a", spec, { marker: `yofmarker${random()}` });
+      if (!id) return { hit: false, status: 0 };
+      const d = await send("viewer", "DELETE", withId(spec.delete, id), { purpose: "owned" });
+      const after = await send("a", "GET", withId(spec.read, id));
+      return { hit: !!d && ok(d.status) && !!after && (after.status === 404 || after.status === 410), status: d?.status ?? 0 };
+    };
+    const gone = await removed();
+    if (gone.hit && await confirm(async () => (await removed()).hit)) {
+      report(VIEWER_RULE, { method: "DELETE", route: spec.delete, as: "viewer", status: gone.status, evidence: `a read-only member deleted a test record of account A with DELETE ${spec.delete}`, meta: { request: `DELETE ${spec.delete} as the read-only member, then GET ${spec.read} as account A`, status: String(gone.status) },
+        replay: { vars: ["marker"], accounts: accounts("a", "viewer"), steps: [...setup,
+          { as: "viewer", method: "DELETE", path: idVar(spec.delete), expect: { kind: "denied" } }, cleanup] } });
+    }
   };
 
   // ── tenant ────────────────────────────────────────────────────────────────────────────────────
   const tenantGroup = async () => {
     const objs = cfg.objects.filter((x) => routeOk(x.read) || routeOk(x.create.path));
     if (!objs.length) return "skipped" as const;
+    // The tenant barrier is "A must never read or change B's data": it needs BOTH accounts.
+    if (!auth.has("a") || !auth.has("b")) {
+      notes.push(`skipped:tenant:the tenant-barrier test needs two accounts in separate tenants${auth.has("a") ? " (only account A is set; add account B)" : auth.has("b") ? " (only account B is set; add account A)" : " (add accounts A and B)"}`);
+      return "skipped" as const;
+    }
     for (const spec of objs) await tenantObject(spec);
     return "done" as const;
   };
@@ -266,13 +417,13 @@ export async function runAttack(o: RunOptions): Promise<AttackRunResult> {
     const other = await send("b", "GET", read);
     if (other === null) { notes.push("no_account:b"); return; }
     if (ok(other.status) && other.body.includes(marker) && await confirm(async () => { const y = await send("b", "GET", read); return !!y && ok(y.status) && y.body.includes(marker); })) {
-      report("attack.tenant_read", { method: "GET", route: spec.read, as: "b", status: other.status, evidence: other.body.split(marker).join("[test record of account A]"), meta: { request: `GET ${spec.read} as account B, for a record of account A`, status: String(other.status) },
+      report("attack.tenant_read", { method: "GET", route: spec.read, as: "b", status: other.status, evidence: `the answer held the test record of account A: ${answerShape(other.body)}`, meta: { request: `GET ${spec.read} as account B, for a record of account A`, status: String(other.status) },
         replay: { vars: ["marker"], accounts: accounts("a", "b"), steps: [...setup, { as: "b", method: "GET", path: spec.read.split("{id}").join("{{id}}"), expect: { kind: "not_contains", value: "{{marker}}" } }, cleanup] } });
     }
     if (spec.list) {
       const l = await send("b", "GET", spec.list);
       if (l && ok(l.status) && l.body.includes(marker) && await confirm(async () => { const y = await send("b", "GET", spec.list!); return !!y && ok(y.status) && y.body.includes(marker); })) {
-        report("attack.tenant_read", { method: "GET", route: spec.list, as: "b", status: l.status, evidence: l.body.split(marker).join("[test record of account A]"), meta: { request: `GET ${spec.list} as account B listed a record of account A`, status: String(l.status) },
+        report("attack.tenant_read", { method: "GET", route: spec.list, as: "b", status: l.status, evidence: `the list held the test record of account A: ${answerShape(l.body)}`, meta: { request: `GET ${spec.list} as account B listed a record of account A`, status: String(l.status) },
           replay: { vars: ["marker"], accounts: accounts("a", "b"), steps: [...setup, { as: "b", method: "GET", path: spec.list, expect: { kind: "not_contains", value: "{{marker}}" } }, cleanup] } });
       }
     }
@@ -298,7 +449,9 @@ export async function runAttack(o: RunOptions): Promise<AttackRunResult> {
   const aiGroup = async () => {
     const specs = cfg.ai.filter((a) => routeOk(a.path));
     if (!specs.length) return "skipped" as const;
-    for (const a of specs) await aiTarget(a);
+    const runnable = specs.filter((a) => auth.has(a.account ?? "a"));
+    if (!runnable.length) { notes.push("skipped:ai:no account to talk to the assistant as (add account A)"); return "skipped" as const; }
+    for (const a of runnable) await aiTarget(a);
     return "done" as const;
   };
   const aiTarget = async (a: AiSpec) => {
@@ -315,7 +468,7 @@ export async function runAttack(o: RunOptions): Promise<AttackRunResult> {
       const reply = await ask(p.message);
       if (reply === null) { notes.push(`ai_unreachable:${a.path}`); return; }
       if (looksLikeInstructions(reply) && await confirm(async () => looksLikeInstructions((await ask(p.message)) ?? ""))) {
-        report("attack.prompt_extraction", { method: "POST", route: a.path, as: role, status: 200, evidence: reply.slice(0, 160), meta: { probe: p.id },
+        report("attack.prompt_extraction", { method: "POST", route: a.path, as: role, status: 200, evidence: `an answer of ${reply.length} characters that reads like its hidden instructions (the text is not kept)`, meta: { probe: p.id },
           replay: { vars: [], accounts: accounts(role), steps: [aiStep(p.message, { kind: "not_instructions" })] } });
         break;
       }
@@ -513,7 +666,7 @@ export async function runAttack(o: RunOptions): Promise<AttackRunResult> {
     // Sign-in: the cookie flags (seen when the runner signed in) and, in a full run with rateLimit on, wrong passwords.
     for (const role of ["a", "b"] as const) {
       const acc = cfg.accounts[role];
-      if (!("login" in acc) || acc.login.tokenPath) continue;
+      if (!acc || !isLoginAccount(acc) || acc.login.tokenPath) continue;
       await auth.headers(role);
       const weak = (auth.cookieFlags.get(role) ?? []).filter((c) => !/;\s*httponly/i.test(c) || !/;\s*samesite=/i.test(c) || (o.proof.origin.startsWith("https:") && !/;\s*secure/i.test(c)));
       if (weak.length) {
@@ -523,9 +676,9 @@ export async function runAttack(o: RunOptions): Promise<AttackRunResult> {
       break;
     }
     if (mode === "full" && cfg.surface.rateLimit) {
-      const role = (["a", "b"] as const).find((r) => "login" in cfg.accounts[r]);
+      const role = (["a", "b"] as const).find((r) => { const a = cfg.accounts[r]; return a && isLoginAccount(a); });
       const acc = role ? cfg.accounts[role] : null;
-      if (role && acc && "login" in acc && env[acc.emailEnv]) {
+      if (role && acc && isLoginAccount(acc) && env[acc.emailEnv]) {
         const statuses: number[] = [];
         for (let i = 0; i < RATE_TRIES; i++) {
           const r = await http.send(role, "POST", acc.login.path, { body: fill(acc.login.body, { email: env[acc.emailEnv]!, password: `yof-wrong-${random()}` }), purpose: "login" });

@@ -254,10 +254,36 @@ def _yof_replay(spec, env):
 
     auth = {}
 
+    def totp_code(secret):
+        s = re.sub(r"[\s=]", "", str(secret or "")).upper()
+        if not s or re.search(r"[^A-Z2-7]", s):
+            return ""
+        A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+        bits = 0
+        val = 0
+        data = bytearray()
+        for ch in s:
+            val = (val << 5) | A.index(ch)
+            bits += 5
+            if bits >= 8:
+                bits -= 8
+                data.append((val >> bits) & 255)
+        import hmac as _hmac
+        import hashlib as _hashlib
+        import struct as _struct
+        import time as _time
+        counter = int(_time.time()) // 30
+        sig = _hmac.new(bytes(data), _struct.pack(">Q", counter), _hashlib.sha1).digest()
+        off = sig[-1] & 15
+        bin_ = ((sig[off] & 127) << 24) | ((sig[off + 1] & 255) << 16) | ((sig[off + 2] & 255) << 8) | (sig[off + 3] & 255)
+        return str(bin_ % 1000000).zfill(6)
+
     def login(role, wrong):
         acc = spec["accounts"][role]
         pw = vs.get("wrong", "yof-wrong") if wrong else env.get(acc["passwordEnv"])
         body = acc["login"]["body"].replace("{{email}}", J(env.get(acc["emailEnv"]))).replace("{{password}}", J(pw))
+        if acc["login"].get("totpEnv"):
+            body = body.replace("{{totp}}", J(totp_code(env.get(acc["login"]["totpEnv"]))))
         return request("POST", acc["login"]["path"], {"Content-Type": "application/json", "Accept": "application/json"}, body)
 
     def headers_for(who):
@@ -268,21 +294,25 @@ def _yof_replay(spec, env):
         acc = spec["accounts"].get(who)
         if not acc:
             raise RuntimeError("This test needs account " + who + ".")
-        if "env" in acc:
-            if not env.get(acc["env"]):
-                raise RuntimeError("Set " + acc["env"] + ".")
-            auth[who] = {acc["header"]: env[acc["env"]]}
-            return auth[who]
+        h = {}
+        for p in acc.get("headers") or []:
+            if not env.get(p["env"]):
+                raise RuntimeError("Set " + p["env"] + ".")
+            h[p["header"]] = env[p["env"]]
+        if "login" not in acc:
+            auth[who] = h
+            return h
         if not env.get(acc["emailEnv"]) or not env.get(acc["passwordEnv"]):
             raise RuntimeError("Set " + acc["emailEnv"] + " and " + acc["passwordEnv"] + ".")
         r = login(who, False)
         if not ok(r["status"]):
             raise RuntimeError("Sign-in for account " + who + " failed (HTTP " + str(r["status"]) + ").")
         if acc["login"].get("tokenPath"):
-            auth[who] = {acc["login"].get("header", "Authorization"): acc["login"].get("prefix", "") + pick(r["text"], acc["login"]["tokenPath"])}
+            h[acc["login"].get("header", "Authorization")] = acc["login"].get("prefix", "") + pick(r["text"], acc["login"]["tokenPath"])
         else:
-            auth[who] = {"Cookie": "; ".join(c.split(";")[0] for c in r["cookies"] if c)}
-        return auth[who]
+            h["Cookie"] = "; ".join(c.split(";")[0] for c in r["cookies"] if c)
+        auth[who] = h
+        return h
 
     def run(st):
         statuses = []

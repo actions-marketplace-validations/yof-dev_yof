@@ -18,7 +18,7 @@ export { parseAttackConfig, inWindow, fill, ConfigError, DEFAULT_BUDGET, MAX_BUD
 export { AttackClient, BudgetError, RefusedError, StoppedError, CLEANUP_MS, USER_AGENT as ATTACK_USER_AGENT, type Exchange, type FetchFn } from "./attack/http";
 export { proveTarget, parseTarget, findPreviewUrl, githubDeploymentProof, type ProofResult, type ProofOk, type TargetKind, type Mode } from "./attack/proof";
 export { aiProbes, looksLikeInstructions, readPath } from "./attack/probes";
-export { runAttack, STOP_CLEANUP_MS, type StopReason, sameData, distinct, maskEvidence, REDIRECT_PROBE_HOST, type AttackFinding, type AttackRunResult, type GroupStatus } from "./attack/runner";
+export { runAttack, STOP_CLEANUP_MS, type StopReason, sameData, distinct, maskEvidence, answerShape, REDIRECT_PROBE_HOST, type AttackFinding, type AttackRunResult, type GroupStatus } from "./attack/runner";
 export { REPLAY_ENGINE_JS, type ReplaySpec, type ReplayStep, type Expect } from "./attack/replay";
 export { detectFramework, synthesizeTest, testName, GENERATED_MARK, GENERATED_LINE, PY_ENGINE, type Framework, type GeneratedTest } from "./attack/regression";
 export { blastRadius, routesOf, nextRoute, routeMatches, groupsFor, scopeLabel, type BlastResult } from "./attack/blast";
@@ -31,3 +31,4 @@ export { parseUnifiedDiff, addedText, workingTreeChanges, MAX_DIFF_BYTES, MAX_DI
 export { UNTRUSTED_HEADER, untrusted, redactText, redactMasked } from "./mcp/untrusted";
 export { remoteConfig, remoteTool, remotePing, DEFAULT_MCP_URL, KEY_SHAPE as MCP_KEY_SHAPE, RemoteError, type RemoteConfig } from "./mcp/remote";
 export { checkArgs, ArgsError, type ToolSchema } from "./mcp/schema";
+export { attackPlan, scopeDocument, type GroupPlan, type ScopeDocInput } from "./attack/scope-doc";

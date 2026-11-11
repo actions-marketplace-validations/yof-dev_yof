@@ -7,12 +7,13 @@ import { dirname, join, resolve, sep } from "node:path";
 import { runGit, type GitRunner } from "../files";
 import { blastRadius, groupsFor, routeMatches, scopeLabel } from "./blast";
 import { ATTACK_GROUPS, type AttackGroup } from "./catalog";
-import { ConfigError, parseAttackConfig } from "./config";
+import { ConfigError, parseAttackConfig, type AttackConfig } from "./config";
 import type { FetchFn } from "./http";
 import { findPreviewUrl, proveTarget, type Mode } from "./proof";
 import { detectFramework, synthesizeTest, type GeneratedTest } from "./regression";
 import { attackComment, type AttackReport } from "./report";
 import { runAttack } from "./runner";
+import { scopeDocument } from "./scope-doc";
 
 export class AttackError extends Error {}
 
@@ -43,15 +44,27 @@ export interface AttackOutcome { report: AttackReport; tests: GeneratedTest[]; c
 
 const readIf = (p: string) => { try { return existsSync(p) ? readFileSync(p, "utf8") : null; } catch { return null; } };
 
+/** Read and check the config file; a missing or refused config is an AttackError a person can act on. */
+function loadConfig(cwd: string, config: string | undefined): AttackConfig {
+  const text = readIf(resolve(cwd, config ?? ".yof/attack.json"));
+  if (text == null) throw new AttackError(`No attack config at ${config ?? ".yof/attack.json"}. See https://yof.io/docs for the format.`);
+  try { return parseAttackConfig(text); } catch (e) { if (e instanceof ConfigError) throw new AttackError(e.message); throw e; }
+}
+
+/**
+ * `yof attack --scope-doc`: the scope and rules-of-engagement document for this config, as Markdown, to read and sign
+ * before a run. Reads the config file only: no request is sent to any host and no account variable is read.
+ */
+export function attackScopeDoc(o: { cwd: string; config?: string; mode?: Mode; target?: string; version: string; now?: () => number }): string {
+  const cfg = loadConfig(o.cwd, o.config);
+  return scopeDocument({ cfg, mode: o.mode ?? "full", target: o.target ?? null, date: new Date((o.now ?? Date.now)()).toISOString().slice(0, 10), version: o.version, configPath: o.config ?? ".yof/attack.json" });
+}
+
 export async function runAttackCommand(o: AttackOptions): Promise<AttackOutcome> {
   const env = o.env ?? process.env;
   const now = o.now ?? Date.now;
   const mode = o.mode ?? "full";
-  const cfgPath = resolve(o.cwd, o.config ?? ".yof/attack.json");
-  const text = readIf(cfgPath);
-  if (text == null) throw new AttackError(`No attack config at ${o.config ?? ".yof/attack.json"}. See https://yof.io/docs for the format.`);
-  let cfg;
-  try { cfg = parseAttackConfig(text); } catch (e) { if (e instanceof ConfigError) throw new AttackError(e.message); throw e; }
+  const cfg = loadConfig(o.cwd, o.config);
 
   let target = o.target ?? env.YOF_ATTACK_TARGET ?? null;
   if (!target) target = await findPreviewUrl(env, o.fetch);

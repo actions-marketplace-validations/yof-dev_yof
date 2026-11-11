@@ -10,10 +10,10 @@ import { ATTACK_RULES, consentText } from "../src/attack/catalog";
 import { ConfigError, inWindow, parseAttackConfig } from "../src/attack/config";
 import { runAttackCommand } from "../src/attack/command";
 import { AttackClient, BudgetError, RefusedError } from "../src/attack/http";
-import { proveTarget } from "../src/attack/proof";
+import { proveTarget, registrableDomain, sameSite } from "../src/attack/proof";
 import { detectFramework, GENERATED_MARK, synthesizeTest } from "../src/attack/regression";
 import { attackComment, PAYLOAD_PREFIX } from "../src/attack/report";
-import { runAttack } from "../src/attack/runner";
+import { answerShape, maskEvidence, runAttack } from "../src/attack/runner";
 import { main } from "../src/cli";
 import { fakeConfig, fakeEnv, startFakeApp, type FakeApp } from "./fake-app";
 
@@ -44,6 +44,16 @@ describe("the runner finds each planted problem, and nothing on the fixed app", 
     expect(r.findings.filter((f) => f.ruleId === "attack.tenant_read").map((f) => f.route).sort()).toEqual(["/api/notes", "/api/notes/{id}"]);
     // Evidence is masked: no full email of the fake users is ever kept.
     expect(JSON.stringify(r.findings)).not.toMatch(/alice@example\.com|a-person@example\.com/);
+    // And it never holds a piece of the answer: no name, no plan, no hidden instruction text, only the answer's shape.
+    const kept = JSON.stringify(r.findings.map((f) => [f.evidence, f.meta]));
+    expect(kept).not.toMatch(/Alice|Bob|Admin-View|team-plan-gold|user-a\b|example\.com/);
+    const ev = (id: string, route?: string) => r.findings.find((f) => f.ruleId === id && (!route || f.route === route))!.evidence;
+    expect(ev("attack.auth_bypass")).toMatch(/^the same data a signed-in account gets came back: a JSON object with 3 fields \(id, email, plan\), \d+ characters$/);
+    expect(ev("attack.rbac_escalation")).toMatch(/^a member got the admin answer: a JSON object with 1 field \(users\), \d+ characters$/);
+    expect(ev("attack.tenant_read", "/api/notes/{id}")).toMatch(/^the answer held the test record of account A: a JSON object with \d+ fields? \([a-z, ]+\), \d+ characters$/);
+    expect(ev("attack.tenant_read", "/api/notes")).toMatch(/^the list held the test record of account A: a JSON /);
+    expect(ev("attack.prompt_extraction")).toMatch(/^an answer of \d+ characters that reads like its hidden instructions \(the text is not kept\)$/);
+    expect(kept).not.toContain("yofmarker");
     expect(r.stopped).toBeNull();
     // Every test record the run created is deleted again.
     expect(bad.notes.size).toBe(0);
@@ -120,6 +130,25 @@ describe("budgets in a real run", () => {
   });
 });
 
+describe("evidence holds the shape of an answer, never its content", () => {
+  it("answerShape names the kind, the size and plain field names only", () => {
+    const person = JSON.stringify({ id: 7, fullName: "Maria Example", phone: "+44 20 7946 0958", "maria@example.com": true, "Maria Example": 1, "12345": 2 });
+    const shape = answerShape(person);
+    expect(shape).toBe(`a JSON object with 6 fields (id, fullName, phone, ...), ${person.length} characters`);
+    expect(shape).not.toMatch(/Maria|7946|example\.com/);
+    const list = JSON.stringify([{ name: "Maria Example", address: "1 High Street" }, { name: "Sam" }]);
+    expect(answerShape(list)).toBe(`a JSON list of 2 items, the first with 2 fields (name, address), ${list.length} characters`);
+    expect(answerShape("[]")).toBe("a JSON list of 0 items, 2 characters");
+    expect(answerShape('"Maria Example"')).toBe("a JSON string, 15 characters");
+    expect(answerShape("<html><body>Maria Example, +44 20 7946 0958</body></html>")).toBe("text, 57 characters");
+  });
+  it("maskEvidence also hides phone numbers and other long numbers", () => {
+    expect(maskEvidence("call +44 20 7946 0958 or (555) 010-9999, card 4111 1111 1111 1111")).toBe("call •••58 or (•••99, card •••11");
+    expect(maskEvidence("12 wrong passwords in a row, none slowed down")).toBe("12 wrong passwords in a row, none slowed down");
+    expect(maskEvidence("a JSON object with 3 fields (id, email, plan), 71 characters")).toBe("a JSON object with 3 fields (id, email, plan), 71 characters");
+  });
+});
+
 describe("only proven hosts", () => {
   const cfg = parseAttackConfig(fakeConfig({ app: "shop.example.com", consent: consentText("shop.example.com") }));
   it("an https host with no proof is refused before any attack request", async () => {
@@ -152,11 +181,98 @@ describe("only proven hosts", () => {
   it("a GitHub preview deployment of this repository for this commit is proof (and reads as preview)", async () => {
     const f = async (u: string) => {
       if (u.includes("/deployments?sha=")) return Response.json([{ id: 7, environment: "Preview", production_environment: false }]);
-      if (u.includes("/deployments/7/statuses")) return Response.json([{ state: "success", environment_url: "https://shop-git-fix.vercel.app" }]);
+      if (u.includes("/deployments/7/statuses")) return Response.json([{ state: "success", environment_url: "https://shop-git-fix.vercel.app", creator: { login: "vercel[bot]", type: "Bot" } }]);
       return new Response("", { status: 404 });
     };
     const env = { GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "acme/shop", YOF_HEAD_SHA: "abcdef1234567" };
     expect(await proveTarget("https://shop-git-fix.vercel.app", cfg, "full", { fetch: f, env })).toMatchObject({ ok: true, kind: "preview", method: "github-deployment" });
+  });
+
+  // Security audit A5 (11 Nov 2026): a deployment status of YOUR OWN repository naming ANY host was proof, skipping the
+  // token, the production switch and the window.
+  const VERCEL = { login: "vercel[bot]", type: "Bot" };
+  const deployAt = (url: string, environment = "Preview", production = false, creator: { login: string; type: string } | null = VERCEL) => async (u: string) => {
+    if (u.includes("/deployments?sha=")) return Response.json([{ id: 7, environment, production_environment: production }]);
+    if (u.includes("/deployments/7/statuses")) return Response.json([{ state: "success", environment_url: url, ...(creator ? { creator } : {}) }]);
+    return new Response("", { status: 404 });
+  };
+  const ghEnv = { GITHUB_TOKEN: "t", GITHUB_REPOSITORY: "acme/shop", YOF_HEAD_SHA: "abcdef1234567" };
+  it("a deployment naming someone else's host is refused, whatever its environment", async () => {
+    expect(await proveTarget("https://victim.example", cfg, "full", { fetch: deployAt("https://victim.example"), env: ghEnv })).toMatchObject({ ok: false, code: "not_this_app" });
+    expect(await proveTarget("https://victim-git-x.vercel.app", cfg, "full", { fetch: deployAt("https://victim-git-x.vercel.app"), env: ghEnv })).toMatchObject({ ok: false, code: "not_this_app" });
+  });
+  // Security audit 3.2 (11 Nov 2026): the repository's name is the attacker's to pick, and so is a deployment status.
+  it("a platform preview named after the repository still needs a status written by the platform's own app", async () => {
+    const host = "https://shop-git-x-victim.vercel.app";
+    for (const creator of [null, { login: "mallory", type: "User" }, { login: "github-actions[bot]", type: "Bot" }, { login: "vercel[bot]", type: "User" }, { login: "netlify[bot]", type: "Bot" }]) {
+      const p = await proveTarget(host, cfg, "full", { fetch: deployAt(host, "Preview", false, creator), env: ghEnv });
+      expect(p, JSON.stringify(creator)).toMatchObject({ ok: false, code: "not_this_app" });
+      expect((p as { message: string }).message).toContain("Vercel's own GitHub app");
+    }
+    expect(await proveTarget(host, cfg, "full", { fetch: deployAt(host), env: ghEnv })).toMatchObject({ ok: true, kind: "preview" });
+    const nf = "https://deploy-preview-4--shop.netlify.app";
+    expect(await proveTarget(nf, cfg, "full", { fetch: deployAt(nf, "Preview", false, { login: "netlify[bot]", type: "Bot" }), env: ghEnv })).toMatchObject({ ok: true, kind: "preview" });
+    const cf = "https://fix.shop.pages.dev";
+    expect(await proveTarget(cf, cfg, "full", { fetch: deployAt(cf, "Preview", false, { login: "cloudflare-workers-and-pages[bot]", type: "Bot" }), env: ghEnv })).toMatchObject({ ok: true, kind: "preview" });
+    expect(await proveTarget(cf, cfg, "full", { fetch: deployAt(cf, "Preview", false, VERCEL), env: ghEnv })).toMatchObject({ ok: false, code: "not_this_app" });
+  });
+  it("on shared hosting two customers are never one site", async () => {
+    expect(registrableDomain("victim.github.io")).toBe("victim.github.io");
+    expect(registrableDomain("attacker.github.io")).toBe("attacker.github.io");
+    expect(registrableDomain("fix.shop.pages.dev")).toBe("shop.pages.dev");
+    expect(registrableDomain("api.shop.herokuapp.com")).toBe("shop.herokuapp.com");
+    expect(registrableDomain("bucket-a.s3.eu-west-1.amazonaws.com")).toBe("bucket-a.s3.eu-west-1.amazonaws.com");
+    expect(registrableDomain("victim.scm.azurewebsites.net")).toBe("victim.scm.azurewebsites.net");
+    expect(registrableDomain("pr-12.shop.example.com")).toBe("example.com");
+    expect(registrableDomain("pr-12.shop.example.co.uk")).toBe("example.co.uk");
+    expect(sameSite("pr-12.example.com", "shop.example.com")).toBe(true);
+    for (const suffix of ["github.io", "vercel.app", "netlify.app", "pages.dev", "web.app", "firebaseapp.com", "herokuapp.com", "onrender.com", "fly.dev", "cloudfront.net", "workers.dev"]) {
+      expect(sameSite(`attacker.${suffix}`, `victim.${suffix}`), suffix).toBe(false);
+      expect(sameSite(`victim.${suffix}`, suffix), suffix).toBe(false);
+    }
+    for (const suffix of ["azurewebsites.net", "amazonaws.com", "s3.amazonaws.com", "run.app"]) expect(sameSite(`attacker.${suffix}`, `victim.${suffix}`), suffix).toBe(false);
+
+    // The run itself: the attacker's app is attacker.github.io, proven with their own token; GitHub reports a
+    // deployment of their repository at victim.github.io. Refused, and the victim's host gets no request.
+    const mine = parseAttackConfig(fakeConfig({ app: "attacker.github.io", consent: consentText("attacker.github.io") }));
+    const token = "yof_abcdefghijklmnopqrstuvwxyz";
+    const urls: string[] = [];
+    const f = async (u: string) => {
+      urls.push(u);
+      if (u === "https://attacker.github.io/.well-known/yof-verify.txt") return new Response(token, { status: 200 });
+      return deployAt("https://victim.github.io", "Preview", false, { login: "github-actions[bot]", type: "Bot" })(u);
+    };
+    expect(await proveTarget("https://victim.github.io", mine, "full", { fetch: f, env: { ...ghEnv, YOF_VERIFY_TOKEN: token }, resolveTxt: async () => [] })).toMatchObject({ ok: false, code: "not_this_app" });
+    expect(urls.some((u) => u.includes("victim.github.io"))).toBe(false);
+  });
+  it("only environment_url counts, not target_url", async () => {
+    const f = async (u: string) => {
+      if (u.includes("/deployments?sha=")) return Response.json([{ id: 7, environment: "Preview" }]);
+      if (u.includes("/deployments/7/statuses")) return Response.json([{ state: "success", target_url: "https://shop-git-x.vercel.app" }]);
+      return new Response("", { status: 404 });
+    };
+    expect(await proveTarget("https://shop-git-x.vercel.app", cfg, "full", { fetch: f, env: ghEnv })).toMatchObject({ ok: false });
+  });
+  it("a host on the app's own domain needs the app proven with the token first", async () => {
+    const f = deployAt("https://pr-12.example.com");
+    expect(await proveTarget("https://pr-12.example.com", cfg, "full", { fetch: f, env: ghEnv, resolveTxt: async () => [] })).toMatchObject({ ok: false, code: "not_proven" });
+    const token = "yof_abcdefghijklmnopqrstuvwxyz";
+    const proven = async (u: string) => (u === "https://shop.example.com/.well-known/yof-verify.txt" ? new Response(token, { status: 200 }) : f(u));
+    expect(await proveTarget("https://pr-12.example.com", cfg, "full", { fetch: proven, env: { ...ghEnv, YOF_VERIFY_TOKEN: token }, resolveTxt: async () => [] })).toMatchObject({ ok: true, kind: "preview", method: "github-deployment" });
+  });
+  it("an environment named prod or live, or the app's own host, is production: the switch and window apply", async () => {
+    expect(await proveTarget("https://shop.vercel.app", cfg, "full", { fetch: deployAt("https://shop.vercel.app", "prod"), env: ghEnv })).toMatchObject({ ok: false, code: "production_off" });
+    expect(await proveTarget("https://shop.vercel.app", cfg, "full", { fetch: deployAt("https://shop.vercel.app", "live"), env: ghEnv })).toMatchObject({ ok: false, code: "production_off" });
+    const token = "yof_abcdefghijklmnopqrstuvwxyz";
+    const f = deployAt("https://shop.example.com", "Preview");
+    const proven = async (u: string) => (u === "https://shop.example.com/.well-known/yof-verify.txt" ? new Response(token, { status: 200 }) : f(u));
+    expect(await proveTarget("https://shop.example.com", cfg, "full", { fetch: proven, env: { ...ghEnv, YOF_VERIFY_TOKEN: token }, resolveTxt: async () => [] })).toMatchObject({ ok: false, code: "production_off" });
+  });
+  it("the token never goes to a plain-http GitHub API", async () => {
+    const urls: string[] = [];
+    const f = async (u: string) => { urls.push(u); return deployAt("https://shop-git-fix.vercel.app")(u); };
+    expect(await proveTarget("https://shop-git-fix.vercel.app", cfg, "full", { fetch: f, env: { ...ghEnv, GITHUB_API_URL: "http://fake.example" } })).toMatchObject({ ok: false });
+    expect(urls.some((u) => u.startsWith("http://fake.example"))).toBe(false);
   });
   it("the config needs the written consent, word for word", () => {
     expect(() => parseAttackConfig(fakeConfig({ consent: "yes" }))).toThrow(ConfigError);
@@ -314,9 +430,9 @@ describe("the yof attack command", () => {
     expect(e3.join("\n")).toMatch(/Refused/);
     expect(await main(["attack", bad.url, "--mode", "loud"], io([], []))).toBe(2);
   }, 30_000);
-  it("the catalog: twenty rules, unique ids under attack.*", () => {
-    expect(ATTACK_RULES).toHaveLength(20);
-    expect(new Set(ATTACK_RULES.map((r) => r.id)).size).toBe(20);
+  it("the catalog: twenty-one rules, unique ids under attack.*", () => {
+    expect(ATTACK_RULES).toHaveLength(21);
+    expect(new Set(ATTACK_RULES.map((r) => r.id)).size).toBe(21);
     for (const r of ATTACK_RULES) { expect(r.id).toMatch(/^attack\.[a-z_]+$/); expect(`${r.title}${r.why}`).not.toMatch(/—/); }
   });
 });

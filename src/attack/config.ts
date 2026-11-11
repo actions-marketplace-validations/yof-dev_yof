@@ -9,8 +9,22 @@
  *     "a": { "header": "Authorization", "env": "YOF_ATTACK_A" },
  *     "b": { "login": { "path": "/api/login", "body": "{\"email\":\"{{email}}\",\"password\":\"{{password}}\"}", "tokenPath": "token" },
  *            "emailEnv": "YOF_ATTACK_B_EMAIL", "passwordEnv": "YOF_ATTACK_B_PASSWORD" },
- *     "admin": { "env": "YOF_ATTACK_ADMIN" }
+ *     "admin": { "env": "YOF_ATTACK_ADMIN" },
+ *     "viewer": { "env": "YOF_ATTACK_VIEWER" }
  *   },
+ *
+ * An account may carry SEVERAL headers (Y23): a session cookie AND a workspace header, for example. Give "headers"
+ * instead of a single "header"/"env", and every one is sent on every request as that role:
+ *     "a": { "headers": [{ "header": "Cookie", "env": "YOF_ATTACK_A" }, { "header": "X-Workspace-Id", "env": "YOF_ATTACK_A_WS" }] }
+ * A login account may add static "headers" the same way (e.g. a workspace header) next to the session it signs in for.
+ * The file still holds no secret: every header names an ENVIRONMENT VARIABLE, never a value. Header values are never
+ * written to a report, a log, or the recorded exchanges; evidence stays masked.
+ * Every variable an account names (env, emailEnv, passwordEnv, login.totpEnv) must start with YOF_ATTACK_: the runner
+ * reads no other variable for an account, so a changed config cannot send GITHUB_TOKEN or another CI secret to the app.
+ *
+ * Roles: "a" (a member), "b" (a second tenant, its own workspace), "admin", and the optional "viewer" (a member who
+ * may only read). Every role is optional. The viewer must be in account A's tenant (workspace): the runner checks that
+ * it cannot create a record, cannot change or delete a test record of account A, and cannot open admin routes.
  *   "routes": ["/api/me", "/api/notes"],
  *   "admin": ["/api/admin/users"],
  *   "objects": [{ "create": { "path": "/api/notes", "body": "{\"title\":\"{{marker}}\"}" }, "idPath": "id",
@@ -28,13 +42,26 @@
  */
 import { consentText } from "./catalog";
 
-export type Role = "a" | "b" | "admin";
-export type HeaderAccount = { header: string; env: string };
+export type Role = "a" | "b" | "admin" | "viewer";
+/** Every role a config may name, in order. All are optional (a config may name none). */
+export const ROLES: readonly Role[] = ["a", "b", "admin", "viewer"];
+/** One header sent as a role: the header name and the ENVIRONMENT VARIABLE that holds its value (never the value). */
+export type HeaderPair = { header: string; env: string };
+/** A role authenticated by one or more static headers (a token, a session cookie, a workspace header). */
+export type HeaderAccount = { headers: HeaderPair[] };
 export type LoginAccount = {
-  login: { path: string; body: string; tokenPath?: string; header?: string; prefix?: string };
+  login: {
+    path: string; body: string; tokenPath?: string; header?: string; prefix?: string;
+    /** A time-based one-time code (RFC 6238) from a base32 secret in this env var, filled into {{totp}} in the body. */
+    totpEnv?: string;
+  };
   emailEnv: string; passwordEnv: string;
+  /** Extra static headers sent next to the session (e.g. X-Workspace-Id). Never the session itself. */
+  headers: HeaderPair[];
 };
 export type AccountSpec = HeaderAccount | LoginAccount;
+/** A header account carries no login; a login account does. */
+export const isLoginAccount = (a: AccountSpec): a is LoginAccount => "login" in a;
 
 export interface ObjectSpec {
   create: { path: string; body: string };
@@ -60,7 +87,7 @@ export interface Budget { requests: number; seconds: number; perSecond: number }
 export interface AttackConfig {
   app: string;
   consent: string;
-  accounts: { a: AccountSpec; b: AccountSpec; admin?: AccountSpec };
+  accounts: { a?: AccountSpec; b?: AccountSpec; admin?: AccountSpec; viewer?: AccountSpec };
   routes: string[];
   admin: string[];
   objects: ObjectSpec[];
@@ -77,7 +104,22 @@ export const MAX_BUDGET: Budget = { requests: 2000, seconds: 900, perSecond: 20 
 export class ConfigError extends Error {}
 
 const PATH = /^\/[A-Za-z0-9._~!$&'()*+,;=:@%/{}-]{0,300}$/;
-const ENV = /^[A-Z][A-Z0-9_]{1,63}$/;
+/**
+ * Every environment variable an account names must start with this (security audit 3.9, 11 Nov 2026). The config is a
+ * file in the repository, so a pull request can change it: without the prefix it could name GITHUB_TOKEN or any other
+ * CI secret and have it sent to the target as a header or a sign-in value.
+ */
+export const ENV_PREFIX = "YOF_ATTACK_";
+const ENV = /^YOF_ATTACK_[A-Z0-9_]{1,52}$/;
+/** An environment variable NAME for an account field: only YOF_ATTACK_* names, with an error that names the field. */
+function envName(v: unknown, what: string): string {
+  if (typeof v !== "string" || !v.trim()) throw new ConfigError(`${what} must name an environment variable.`);
+  const s = v.trim();
+  if (!ENV.test(s)) {
+    throw new ConfigError(`${what} must name an environment variable that starts with ${ENV_PREFIX} (capital letters, digits and _ only), for example ${ENV_PREFIX}A. It names ${JSON.stringify(s.slice(0, 60))}. yof attack reads no other variable, so a changed config can never send another secret to the app.`);
+  }
+  return s;
+}
 const HEADER = /^[A-Za-z][A-Za-z0-9-]{0,39}$/;
 const FORBIDDEN_HEADERS = new Set(["host", "content-length", "transfer-encoding", "connection", "upgrade", "te", "trailer"]);
 const JSON_PATH = /^[A-Za-z0-9_$-]{1,40}(?:\.[A-Za-z0-9_$-]{1,40}){0,7}$/;
@@ -100,7 +142,7 @@ function bodyTemplate(v: unknown, what: string, needs: string[]): string {
   const t = str(v, what);
   if (t.length > 4000) throw new ConfigError(`${what} is too long.`);
   for (const n of needs) if (!t.includes(`{{${n}}}`)) throw new ConfigError(`${what} needs {{${n}}}.`);
-  try { JSON.parse(fill(t, { message: "a \"b\"\nc", marker: "m", email: "e", password: "p", id: "1", document: "d" })); }
+  try { JSON.parse(fill(t, { message: "a \"b\"\nc", marker: "m", email: "e", password: "p", id: "1", document: "d", totp: "123456" })); }
   catch { throw new ConfigError(`${what} must be JSON once the {{...}} values are filled in.`); }
   return t;
 }
@@ -115,23 +157,72 @@ const list = (v: unknown, what: string, max = 50): unknown[] => {
   return v;
 };
 
+/** At most this many headers for one role. */
+const MAX_HEADERS = 8;
+
+/** One { header, env } pair, header defaulting to Authorization; the header is checked and must be sendable. */
+function headerPair(name: string, env: unknown, what: string): HeaderPair {
+  const header = name === "" ? "Authorization" : str(name, `${what}.header`, HEADER);
+  if (FORBIDDEN_HEADERS.has(header.toLowerCase())) throw new ConfigError(`${what}.header may not be ${header}.`);
+  return { header, env: envName(env, `${what}.env`) };
+}
+
+/**
+ * The static headers a role carries. Either a single `header`/`env` pair, or a `headers` list of them (Y23), never
+ * both. A login account may leave it empty. No two headers may share a name.
+ */
+function headerList(v: Record<string, unknown>, what: string, allowEmpty: boolean): HeaderPair[] {
+  const hasList = v.headers !== undefined;
+  const hasSingle = v.header !== undefined || v.env !== undefined;
+  if (hasList && hasSingle) throw new ConfigError(`${what} may give either "headers" or a single "header"/"env", not both.`);
+  let pairs: HeaderPair[];
+  if (hasList) {
+    const raw = list(v.headers, `${what}.headers`, MAX_HEADERS);
+    if (!raw.length) throw new ConfigError(`${what}.headers must hold at least one header.`);
+    pairs = raw.map((h, i) => {
+      if (!isObj(h)) throw new ConfigError(`${what}.headers[${i}] must be an object with header and env.`);
+      return headerPair(h.header === undefined ? "" : String(h.header), h.env, `${what}.headers[${i}]`);
+    });
+  } else if (hasSingle) {
+    pairs = [headerPair(v.header === undefined ? "" : String(v.header), v.env, what)];
+  } else {
+    if (allowEmpty) return [];
+    throw new ConfigError(`${what} needs a header (give "env", or a "headers" list).`);
+  }
+  const seen = new Set<string>();
+  for (const p of pairs) {
+    const key = p.header.toLowerCase();
+    if (seen.has(key)) throw new ConfigError(`${what} names the header ${p.header} twice.`);
+    seen.add(key);
+  }
+  return pairs;
+}
+
+const ACCOUNT_KEYS = new Set(["header", "env", "headers", "login", "emailEnv", "passwordEnv"]);
+
 function account(v: unknown, what: string): AccountSpec {
   if (!isObj(v)) throw new ConfigError(`${what} must be an object.`);
+  // The file holds no secret: a key such as "password" or "token" is refused, never read.
+  for (const k of Object.keys(v)) {
+    if (!ACCOUNT_KEYS.has(k)) throw new ConfigError(`${what} has an unknown key "${k.slice(0, 40)}". The file never holds a secret: name an environment variable instead.`);
+  }
   if (isObj(v.login)) {
     const l = v.login;
     const header = l.header === undefined ? "Authorization" : str(l.header, `${what}.login.header`, HEADER);
+    // When a one-time code is used, the login body must have {{totp}} to put it in.
+    const needs = l.totpEnv === undefined ? ["email", "password"] : ["email", "password", "totp"];
     return {
       login: {
-        path: path(l.path, `${what}.login.path`), body: bodyTemplate(l.body, `${what}.login.body`, ["email", "password"]),
+        path: path(l.path, `${what}.login.path`), body: bodyTemplate(l.body, `${what}.login.body`, needs),
         ...(l.tokenPath === undefined ? {} : { tokenPath: str(l.tokenPath, `${what}.login.tokenPath`, JSON_PATH) }),
+        ...(l.totpEnv === undefined ? {} : { totpEnv: envName(l.totpEnv, `${what}.login.totpEnv`) }),
         header, prefix: l.prefix === undefined ? "Bearer " : String(l.prefix).slice(0, 20),
       },
-      emailEnv: str(v.emailEnv, `${what}.emailEnv`, ENV), passwordEnv: str(v.passwordEnv, `${what}.passwordEnv`, ENV),
+      emailEnv: envName(v.emailEnv, `${what}.emailEnv`), passwordEnv: envName(v.passwordEnv, `${what}.passwordEnv`),
+      headers: headerList(v, what, true),
     };
   }
-  const header = v.header === undefined ? "Authorization" : str(v.header, `${what}.header`, HEADER);
-  if (FORBIDDEN_HEADERS.has(header.toLowerCase())) throw new ConfigError(`${what}.header may not be ${header}.`);
-  return { header, env: str(v.env, `${what}.env`, ENV) };
+  return { headers: headerList(v, what, false) };
 }
 
 function num(v: unknown, def: number, max: number, what: string): number {
@@ -151,12 +242,12 @@ export function parseAttackConfig(text: string): AttackConfig {
   const consent = str(raw.consent, "consent");
   if (consent !== consentText(app)) throw new ConfigError(`consent must read exactly: ${consentText(app)}`);
 
-  if (!isObj(raw.accounts)) throw new ConfigError("accounts needs a (account A) and b (account B).");
-  const accounts = {
-    a: account(raw.accounts.a, "accounts.a"),
-    b: account(raw.accounts.b, "accounts.b"),
-    ...(raw.accounts.admin === undefined ? {} : { admin: account(raw.accounts.admin, "accounts.admin") }),
-  };
+  // Accounts are OPTIONAL (owner 2026-11-11): a config with none runs the public checks only (surface, headers,
+  // redirects); with only A, the tenant-barrier group is skipped. Each role, when present, is validated.
+  if (raw.accounts !== undefined && !isObj(raw.accounts)) throw new ConfigError("accounts must be an object, or left out for a public-only run.");
+  const rawAccounts = isObj(raw.accounts) ? raw.accounts : {};
+  const accounts: AttackConfig["accounts"] = {};
+  for (const r of ROLES) if (rawAccounts[r] !== undefined) accounts[r] = account(rawAccounts[r], `accounts.${r}`);
 
   const objects = list(raw.objects, "objects", 10).map((o, i): ObjectSpec => {
     const w = `objects[${i}]`;

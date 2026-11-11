@@ -30,7 +30,7 @@ export function juiceShopConfig(o: { basketId: string }) {
   const app = "localhost:3000";
   const login = (who: "A" | "B") => ({
     login: { path: "/rest/user/login", body: "{\"email\":\"{{email}}\",\"password\":\"{{password}}\"}", tokenPath: "authentication.token" },
-    emailEnv: `YOF_BENCH_JS_${who}_EMAIL`, passwordEnv: `YOF_BENCH_JS_${who}_PASSWORD`,
+    emailEnv: `YOF_ATTACK_BENCH_JS_${who}_EMAIL`, passwordEnv: `YOF_ATTACK_BENCH_JS_${who}_PASSWORD`,
   });
   return {
     app, consent: consentFor(app),
@@ -62,9 +62,9 @@ export function nodeGoatConfig(o: { userIdA: string | null }) {
   return {
     app, consent: consentFor(app),
     accounts: {
-      a: { header: "Cookie", env: "YOF_BENCH_NG_A_COOKIE" },
-      b: { header: "Cookie", env: "YOF_BENCH_NG_B_COOKIE" },
-      admin: { header: "Cookie", env: "YOF_BENCH_NG_ADMIN_COOKIE" },
+      a: { header: "Cookie", env: "YOF_ATTACK_BENCH_NG_A_COOKIE" },
+      b: { header: "Cookie", env: "YOF_ATTACK_BENCH_NG_B_COOKIE" },
+      admin: { header: "Cookie", env: "YOF_ATTACK_BENCH_NG_ADMIN_COOKIE" },
     },
     routes: ["/dashboard", "/profile", "/contributions", "/memos", "/research", ...(o.userIdA ? [`/allocations/${o.userIdA}`] : [])],
     admin: ["/benefits"],
@@ -110,8 +110,8 @@ export async function setupJuiceShop(t: Target, f: Fetch = fetch, expectVersion 
     const body = await login.json() as { authentication?: { token?: string; bid?: number } };
     if (!login.ok || !body.authentication?.token) throw new SetupError(`Juice Shop sign-in for account ${who} answered ${login.status}.`);
     if (who === "A") basketId = String(body.authentication.bid ?? "");
-    env[`YOF_BENCH_JS_${who}_EMAIL`] = email;
-    env[`YOF_BENCH_JS_${who}_PASSWORD`] = pw;
+    env[`YOF_ATTACK_BENCH_JS_${who}_EMAIL`] = email;
+    env[`YOF_ATTACK_BENCH_JS_${who}_PASSWORD`] = pw;
     secrets.push(pw);
   }
   if (!/^\d+$/.test(basketId)) throw new SetupError("Juice Shop did not return account A's basket id.");
@@ -138,7 +138,7 @@ export async function setupNodeGoat(t: Target, f: Fetch = fetch): Promise<SetupO
     const html = await dash.text();
     if (dash.status !== 200) throw new SetupError(`NodeGoat's dashboard answered ${dash.status} for account ${who}.`);
     if (who === "A") userIdA = /\/allocations\/(\d+)/.exec(html)?.[1] ?? null;
-    env[`YOF_BENCH_NG_${who}_COOKIE`] = cookie;
+    env[`YOF_ATTACK_BENCH_NG_${who}_COOKIE`] = cookie;
     secrets.push(cookie);
   }
   if (!userIdA) notes.push("NodeGoat's dashboard showed no allocations link for account A; that route is left out.");
@@ -146,7 +146,7 @@ export async function setupNodeGoat(t: Target, f: Fetch = fetch): Promise<SetupO
   const adm = await f(url("/login"), { method: "POST", headers: form, redirect: "manual", body: new URLSearchParams({ userName: "admin", password: "Admin_123" }).toString() });
   const admCookie = cookieOf(adm);
   await adm.arrayBuffer();
-  if (admCookie && adm.status >= 300 && adm.status < 400) { env.YOF_BENCH_NG_ADMIN_COOKIE = admCookie; secrets.push(admCookie); }
+  if (admCookie && adm.status >= 300 && adm.status < 400) { env.YOF_ATTACK_BENCH_NG_ADMIN_COOKIE = admCookie; secrets.push(admCookie); }
   else notes.push(`NodeGoat's demo admin sign-in answered ${adm.status}; the admin comparison runs without it.`);
   return { config: nodeGoatConfig({ userIdA }), env, secrets, notes: [`NodeGoat is up; accounts A and B created.`, ...notes] };
 }

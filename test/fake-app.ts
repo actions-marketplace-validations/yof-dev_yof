@@ -6,13 +6,15 @@
  *               markup, obeys instructions in pasted text and in other accounts' notes, says the unlock word, shows
  *               internal details, claims to send emails, renames anyone's note through its tool, and has no usage limit
  *   fixed       the same app with every one of those checks in place, and the headers set
- * Accounts sign in with a bearer token: a, b and admin. The test accounts' "users" use example.com addresses.
+ * The viewer (Y24) is a read-only member of account A's workspace: it sees A's notes. The vulnerable app lets it
+ * create, change and delete them; the fixed app answers 403 to every write by the viewer.
+ * Accounts sign in with a bearer token: a, b, admin and viewer. The test accounts' "users" use example.com addresses.
  */
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 
-export const TOKENS = { a: "Bearer tok-a-123456", b: "Bearer tok-b-123456", admin: "Bearer tok-admin-123456" } as const;
-type Who = "a" | "b" | "admin";
+export const TOKENS = { a: "Bearer tok-a-123456", b: "Bearer tok-b-123456", admin: "Bearer tok-admin-123456", viewer: "Bearer tok-viewer-123456" } as const;
+type Who = "a" | "b" | "admin" | "viewer";
 
 export interface FakeApp { url: string; close: () => Promise<void>; requests: { method: string; path: string }[]; notes: Map<string, { owner: Who; title: string }> }
 
@@ -57,6 +59,9 @@ export async function startFakeApp(vulnerable: boolean): Promise<FakeApp> {
     }
     if (!me) return send(res, 401, { error: "unauthorized" });
 
+    // The viewer reads account A's notes (same workspace); on the fixed app it may not write at all.
+    const sees = (n: { owner: Who }) => n.owner === me || (me === "viewer" && n.owner === "a");
+    if (!vulnerable && me === "viewer" && method !== "GET" && p.startsWith("/api/notes")) return send(res, 403, { error: "forbidden" });
     if (p === "/api/notes" && method === "POST") {
       const b = await body(req);
       const id = `n${next++}`;
@@ -64,16 +69,16 @@ export async function startFakeApp(vulnerable: boolean): Promise<FakeApp> {
       return send(res, 201, { id });
     }
     if (p === "/api/notes" && method === "GET") {
-      const list = [...notes.entries()].filter(([, n]) => vulnerable || n.owner === me).map(([id, n]) => ({ id, title: n.title }));
+      const list = [...notes.entries()].filter(([, n]) => vulnerable || sees(n)).map(([id, n]) => ({ id, title: n.title }));
       return send(res, 200, { notes: list });
     }
     const m = /^\/api\/notes\/([\w-]+)$/.exec(p);
     if (m) {
       const n = notes.get(m[1]!);
-      if (!n || (!vulnerable && n.owner !== me)) return send(res, 404, { error: "not found" });
+      if (!n || (!vulnerable && !sees(n))) return send(res, 404, { error: "not found" });
       if (method === "GET") return send(res, 200, { id: m[1], title: n.title });
       if (method === "PATCH") { const b = await body(req); n.title = String(b.title ?? n.title); return send(res, 200, { id: m[1], title: n.title }); }
-      if (method === "DELETE") { if (n.owner !== me) return send(res, 404, { error: "not found" }); notes.delete(m[1]!); return send(res, 204, {}); }
+      if (method === "DELETE") { if (n.owner !== me && !(vulnerable && sees(n))) return send(res, 404, { error: "not found" }); notes.delete(m[1]!); return send(res, 204, {}); }
     }
     if (p === "/api/admin/users" && method === "GET") {
       if (!vulnerable && me !== "admin") return send(res, 403, { error: "forbidden" });
@@ -155,4 +160,6 @@ export const fakeConfig = (extra: Record<string, unknown> = {}) => JSON.stringif
   ...extra,
 }, null, 2);
 
-export const fakeEnv = (): Record<string, string> => ({ YOF_ATTACK_A: TOKENS.a, YOF_ATTACK_B: TOKENS.b, YOF_ATTACK_ADMIN: TOKENS.admin });
+export const fakeEnv = (): Record<string, string> => ({ YOF_ATTACK_A: TOKENS.a, YOF_ATTACK_B: TOKENS.b, YOF_ATTACK_ADMIN: TOKENS.admin, YOF_ATTACK_VIEWER: TOKENS.viewer });
+/** The four accounts, the read-only member included (Y24). */
+export const VIEWER_ACCOUNTS = { a: { env: "YOF_ATTACK_A" }, b: { env: "YOF_ATTACK_B" }, admin: { env: "YOF_ATTACK_ADMIN" }, viewer: { env: "YOF_ATTACK_VIEWER" } };
