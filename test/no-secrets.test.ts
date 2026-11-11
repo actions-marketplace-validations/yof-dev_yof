@@ -34,8 +34,9 @@ describe("nothing private in this repository", () => {
     // Plus addresses that are never requested: the shape of a Slack webhook, named in the Slack rule's fix words, and the
     // reserved .invalid addresses inside the assistant probes' message text (they never resolve; the probe image host is
     // the constant PROBE_IMAGE_HOST, yof-canary.invalid), and the MIT credit for the findings.json format (a comment in
-    // src/findings-json.ts and src/findings-format.ts, never requested).
-    const allowed = /^https:\/\/(?:registry\.npmjs\.org|api\.npmjs\.org|pypi\.org|api\.osv\.dev|api\.github\.com|yof\.io|mcp\.yof\.io)(?:\/|$)|^https:\/\/hooks\.slack\.com\/services\/\.\.\.$|^https:\/\/example\.invalid$|^https:\/\/\$\{PROBE_IMAGE_HOST\}\/|^https:\/\/github\.com\/cloudflare\/security-audit-skill$/;
+    // src/findings-json.ts and src/findings-format.ts, never requested). And one address that IS requested but is not
+    // fixed: https://${appHost} in src/attack/proof.ts, the person's own app from their config, read for its proof file.
+    const allowed = /^https:\/\/(?:registry\.npmjs\.org|api\.npmjs\.org|pypi\.org|api\.osv\.dev|api\.github\.com|yof\.io|mcp\.yof\.io)(?:\/|$)|^https:\/\/hooks\.slack\.com\/services\/\.\.\.$|^https:\/\/example\.invalid$|^https:\/\/\$\{PROBE_IMAGE_HOST\}\/|^https:\/\/github\.com\/cloudflare\/security-audit-skill$|^https:\/\/\$\{appHost\}$/;
     for (const f of walk(join(ROOT, "src"))) {
       for (const m of readFileSync(f, "utf8").matchAll(/https?:\/\/[^\s"'`)\\]+/g)) expect(m[0], relative(ROOT, f)).toMatch(allowed);
     }

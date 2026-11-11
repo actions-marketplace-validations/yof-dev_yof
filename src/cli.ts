@@ -1,5 +1,5 @@
 /** The `yof` command. main() returns the exit code: 0 nothing to fix, 1 something to fix, 2 a usage or setup error. */
-import { AttackError, runAttackCommand } from "./attack/command";
+import { AttackError, attackScopeDoc, runAttackCommand } from "./attack/command";
 import type { FetchFn } from "./attack/http";
 import { cleanupLines, formatAttackJson, formatAttackText } from "./attack/report";
 import { processSignalHost, STOP_EXIT_CODE, stopOnSignals, type SignalHost } from "./attack/signals";
@@ -41,6 +41,8 @@ yof attack options
   --write-tests             Write a regression test for every confirmed finding
   --comment <file>          Write the pull-request comment to this file
   --upload                  Send the masked results to your yof app (YOF_HOOK_URL)
+  --scope-doc               Print the scope and rules-of-engagement document for this config
+                            (Markdown, to read and sign before a run). Sends nothing.
   -v, --version             Print the version
   -h, --help                Print this help
 
@@ -94,7 +96,7 @@ export async function main(argv: string[], io: Io = defaultIo()): Promise<number
     } else if (a.startsWith("-")) flags.add(a);
     else positional.push(a);
   }
-  const known = new Set(["--offline", "--json", "--staged", "--version", "-v", "--help", "-h", "--write-tests", "--upload"]);
+  const known = new Set(["--offline", "--json", "--staged", "--version", "-v", "--help", "-h", "--write-tests", "--upload", "--scope-doc"]);
   for (const f of flags) if (!known.has(f)) { io.err(`Unknown option: ${f}\n\n${HELP}`); return 2; }
 
   if (flags.has("--version") || flags.has("-v")) { io.out(VERSION); return 0; }
@@ -131,6 +133,16 @@ export async function main(argv: string[], io: Io = defaultIo()): Promise<number
     if (rest.length > 1) { io.err("yof attack takes one address at most."); return 2; }
     const mode = values["--mode"] ?? "full";
     if (mode !== "full" && mode !== "light") { io.err("--mode must be full or light."); return 2; }
+    if (flags.has("--scope-doc")) {
+      // The document only: the config is read, nothing is sent and no account variable is read.
+      try {
+        io.out(attackScopeDoc({ cwd: io.cwd, config: values["--config"], mode, target: rest[0], version: VERSION, now: io.now ? () => io.now!.getTime() : undefined }));
+        return 0;
+      } catch (e) {
+        if (e instanceof AttackError) { io.err(e.message); return 2; }
+        throw e;
+      }
+    }
     const stop = stopOnSignals(io.signals ?? processSignalHost());
     try {
       const out = await runAttackCommand({

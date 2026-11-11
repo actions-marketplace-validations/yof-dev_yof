@@ -18,7 +18,10 @@ if (mode === "stop" && input.stop_hook_active) process.exit(0);
 
 const cwd = typeof input.cwd === "string" && input.cwd ? input.cwd : process.cwd();
 const args = ["-y", "@yof/cli", "diff", "--json", ...(mode === "post-tool-use" ? ["--offline"] : [])];
-const r = spawnSync(process.platform === "win32" ? "npx.cmd" : "npx", args, { cwd, encoding: "utf8", timeout: 110_000 });
+// Windows: npx is a .cmd file, which current Node only starts through a shell (audit 2026-11-11 #17). The arguments
+// are the fixed words above, never input from the project, so the shell sees nothing it could expand.
+const win = process.platform === "win32";
+const r = spawnSync(win ? "npx.cmd" : "npx", args, { cwd, encoding: "utf8", timeout: 110_000, ...(win ? { shell: true } : {}) });
 
 if (r.status !== 0 && r.status !== 1) {
   if (mode === "stop") process.stderr.write("yof: the check could not run here (it needs git and npx). Nothing was blocked.\n");

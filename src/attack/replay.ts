@@ -128,10 +128,24 @@ async function yofReplay(spec, env) {
     return /\b(?:i(?:'ve| have)?\s+(?:just\s+)?(?:sent|emailed|e-mailed|forwarded|deleted|removed|refunded|cancelled|canceled|updated|changed|scheduled|booked|posted)\b|(?:the\s+)?(?:e-?mail|message)\s+(?:has\s+been|was|is)\s+(?:sent|delivered|on its way)\b|\b(?:done|sent)[!.]\s)/i.test(t);
   };
   const auth = {};
+  async function totpCode(secret) {
+    const s = String(secret || "").replace(/[\s=]/g, "").toUpperCase();
+    if (!s || /[^A-Z2-7]/.test(s)) return "";
+    const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"; let bits = 0, val = 0; const bytes = [];
+    for (const ch of s) { val = (val << 5) | A.indexOf(ch); bits += 5; if (bits >= 8) { bits -= 8; bytes.push((val >>> bits) & 255); } }
+    const counter = Math.floor(Date.now() / 1000 / 30); const buf = new ArrayBuffer(8); const dv = new DataView(buf);
+    dv.setUint32(0, Math.floor(counter / 2 ** 32)); dv.setUint32(4, counter >>> 0);
+    const k = await crypto.subtle.importKey("raw", new Uint8Array(bytes), { name: "HMAC", hash: "SHA-1" }, false, ["sign"]);
+    const sig = new Uint8Array(await crypto.subtle.sign("HMAC", k, buf));
+    const off = sig[sig.length - 1] & 15;
+    const bin = ((sig[off] & 127) << 24) | ((sig[off + 1] & 255) << 16) | ((sig[off + 2] & 255) << 8) | (sig[off + 3] & 255);
+    return String(bin % 1000000).padStart(6, "0");
+  }
   async function login(role, wrong) {
     const acc = spec.accounts[role];
     const pw = wrong ? vars.wrong || "yof-wrong" : env[acc.passwordEnv];
-    const body = acc.login.body.replace(/\{\{email\}\}/g, J(env[acc.emailEnv])).replace(/\{\{password\}\}/g, J(pw));
+    let body = acc.login.body.replace(/\{\{email\}\}/g, J(env[acc.emailEnv])).replace(/\{\{password\}\}/g, J(pw));
+    if (acc.login.totpEnv) body = body.replace(/\{\{totp\}\}/g, J(await totpCode(env[acc.login.totpEnv])));
     const r = await fetch(base + acc.login.path, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body, redirect: "manual" });
     return { status: r.status, text: await r.text(), headers: r.headers };
   }
@@ -140,13 +154,15 @@ async function yofReplay(spec, env) {
     if (auth[as]) return auth[as];
     const acc = spec.accounts[as];
     if (!acc) throw new Error("This test needs account " + as + ".");
-    if (acc.env) { if (!env[acc.env]) throw new Error("Set " + acc.env + "."); auth[as] = { [acc.header]: String(env[acc.env]) }; return auth[as]; }
+    const h = {};
+    for (const p of acc.headers || []) { if (!env[p.env]) throw new Error("Set " + p.env + "."); h[p.header] = String(env[p.env]); }
+    if (!acc.login) { auth[as] = h; return h; }
     if (!env[acc.emailEnv] || !env[acc.passwordEnv]) throw new Error("Set " + acc.emailEnv + " and " + acc.passwordEnv + ".");
     const r = await login(as, false);
     if (!ok(r.status)) throw new Error("Sign-in for account " + as + " failed (HTTP " + r.status + ").");
-    if (acc.login.tokenPath) auth[as] = { [acc.login.header]: (acc.login.prefix || "") + pick(r.text, acc.login.tokenPath) };
-    else { const sc = typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [r.headers.get("set-cookie") || ""]; auth[as] = { Cookie: sc.map((c) => c.split(";")[0]).filter(Boolean).join("; ") }; }
-    return auth[as];
+    if (acc.login.tokenPath) h[acc.login.header] = (acc.login.prefix || "") + pick(r.text, acc.login.tokenPath);
+    else { const sc = typeof r.headers.getSetCookie === "function" ? r.headers.getSetCookie() : [r.headers.get("set-cookie") || ""]; h["Cookie"] = sc.map((c) => c.split(";")[0]).filter(Boolean).join("; "); }
+    auth[as] = h; return h;
   }
   async function run(st) {
     const times = st.repeat || 1; const statuses = []; let last = null;

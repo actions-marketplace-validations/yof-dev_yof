@@ -61,7 +61,7 @@ Install it if you use it often:
 
 ```sh
 npm install --save-dev @yof/cli
-npx yof check
+npx @yof/cli check
 ```
 
 ## Check every commit (pre-commit hook)
@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: yof-dev/yof@v0.2.0
+      - uses: yof-dev/yof@v0.3.2
         with:
           path: .          # optional, default .
           offline: false   # optional, true = keys only, no registry lookups
@@ -170,13 +170,13 @@ What it tries:
 | --- | --- |
 | `auth` | Opens each signed-in route with no sign-in and with a broken token |
 | `tenant` | Account A creates a test record, account B reads it by id, finds it in a list and changes it |
-| `rbac` | Opens each admin route as a normal member |
+| `rbac` | Opens each admin route as a normal member; with a `viewer` account, also as the read-only member, who then tries to create, change and delete a test record |
 | `ai` | Your own assistant route: asks for its hidden instructions, types a command into a message, hides one in a record it reads (an HTML comment, a link title, a "system" field), asks it for account B's record, to rename account B's record, and for admin data; checks whether account B's record steers account A's general answers (RAG poisoning); asks it to answer with live HTML or a picture link, to drop its rules for one harmless word, for its internal addresses and tool list, and to send an email to a `.invalid` address; and, only with `"limits": true`, sends 10 tiny messages two at a time and asks for one very long story |
 | `surface` | Open redirects, security headers, the sign-in cookie flags, and (when you turn it on) twelve wrong passwords in a row |
 
 Safe by design, and enforced in the code:
 
-- **Only a host you proved is yours.** `localhost`; a preview that GitHub reports as a successful deployment of this repository for the commit under test; or your live host with the proof token from your yof app (`YOF_VERIFY_TOKEN`, the same file, meta tag or DNS record the yof app uses).
+- **Only a host you proved is yours.** `localhost`; a preview that GitHub reports as a successful deployment of this repository for the commit under test, at an address that is also this repository's own (a Vercel, Netlify or Cloudflare Pages preview named after the repository and reported by that platform's own GitHub app, or a host on your app's own domain once the app is proven with your token; on shared hosting such as `github.io` only your own name counts as your domain; an environment named `prod`, `production` or `live`, or your app's own host, is production); or your live host with the proof token from your yof app (`YOF_VERIFY_TOKEN`, the same file, meta tag or DNS record the yof app uses).
 - **Written consent per app**, word for word in the config, naming the app.
 - **Never production** unless the config turns it on for this app. Then a light run (read-only) may go any time, and a full run only inside the window you set.
 - **No destructive requests.** GET and HEAD, plus POST only to the create, sign-in and assistant routes you name. PATCH, PUT and DELETE only touch records the run created itself, and those are deleted at the end, always.
@@ -184,7 +184,9 @@ Safe by design, and enforced in the code:
 - **Stop it any time.** Ctrl+C (SIGINT) or SIGTERM, as an editor or CI sends on cancel: nothing new is sent, the test records the run created are deleted (within 10 seconds), it says what it deleted and anything it could not, and exits 130 or 143. A second Ctrl+C quits at once.
 - **Mild, fixed assistant messages.** The assistant probes are the same fixed texts every run (the OWASP Top 10 for LLM Applications 2025 families). None asks for harmful content: the jailbreak asks only for a harmless test word, picture links point at `yof-canary.invalid` and the email probe at an `example.invalid` address, which never resolve. Rules decide every finding, never a model. For internal details only the kind is kept (a private address, a connection string, a server path, a tool list), never the text.
 - **Usage limits are opt-in.** `"limits": true` on an `ai` entry adds a burst of 10 tiny messages and one request for a very long story, because it costs you a little model use. Without it, nothing of the kind is sent.
+- **Evidence is the shape of an answer, never its content.** A finding says what came back in yof's own words (`a JSON object with 3 fields (id, email, plan), 71 characters`). No part of the answer is kept, so no name, phone number or record of a real user reaches a report, a log or the yof app.
 - **Your test accounts stay in your CI secrets.** The config names environment variables, never a token or password, and nothing is stored by yof.
+- **Only `YOF_ATTACK_` variables.** Every environment variable an account names must start with `YOF_ATTACK_` (`YOF_ATTACK_A`, `YOF_ATTACK_A_EMAIL`, ...). The config is a file in your repository, so a pull request can change it; with this rule a changed config cannot have `GITHUB_TOKEN` or another CI secret sent to the app.
 
 The config lives at `.yof/attack.json`:
 
@@ -220,6 +222,22 @@ The config lives at `.yof/attack.json`:
 
 An account can also sign in with an email and password from your CI secrets: `{ "login": { "path": "/api/login", "body": "{\"email\":\"{{email}}\",\"password\":\"{{password}}\"}", "tokenPath": "token" }, "emailEnv": "YOF_ATTACK_A_EMAIL", "passwordEnv": "YOF_ATTACK_A_PASSWORD" }`. Without `tokenPath` the session cookie is used.
 
+More about accounts:
+
+- **Accounts are optional.** With no `accounts` block, yof attack runs the public tests only (the surface group) and says which groups it skipped and why. Sign-in tests need account A; admin-route tests need A (and compare with `admin` when you give one); the tenant-barrier test needs A and B in separate tenants.
+- **Several headers for one account.** When your API needs a session cookie and a workspace header together, give a `headers` list instead of a single `header`/`env`: `{ "headers": [{ "header": "Cookie", "env": "YOF_ATTACK_A" }, { "header": "X-Workspace-Id", "env": "YOF_ATTACK_A_WS" }] }`. A sign-in account can add static `headers` the same way. Every header names an environment variable; a value in the file, or a key such as `password`, is refused.
+- **Sessions that expire.** A sign-in account signs in fresh on each run, so a short session (a 15-minute cookie, for example) needs no stored token. If the test account uses an authenticator app, add `"totpEnv": "YOF_ATTACK_A_TOTP"` inside `login` (the base32 secret, in your CI secrets) and put `{{totp}}` in the sign-in body.
+- **A read-only member.** The optional `viewer` account is a member who may only read, in the same workspace as account A. With it, the `rbac` group also opens each admin route as the viewer and, in a full run, has the viewer try to create a test record and to change and delete a test record of account A. Anything that works is reported as `attack.viewer_escalation`, confirmed twice, with a regression test. Only the run's own test records are touched, and they are deleted at the end.
+
+### Scope and rules of engagement
+
+```sh
+npx @yof/cli attack --scope-doc > yof-attack-scope.md
+npx @yof/cli attack https://shop.example.com --mode light --scope-doc
+```
+
+Before a run, `--scope-doc` prints a Markdown document made from your config and its consent sentence: the hosts in scope, the test accounts by role (the names of their variables, never a value), the mode and the production window, the budget, which test groups will run and which are skipped and why, what is never done, and a signature block for the owner or a client. It reads the config file only: nothing is sent to any host. It describes automated attack testing, evidence for your security reviews. It does not replace a manual test where a standard requires one.
+
 ### Regression tests
 
 With `--write-tests`, every confirmed finding becomes a test in your own test framework (Vitest, Jest, Playwright or pytest, detected from your repository; a `node --test` file otherwise). It replays the recorded attack and expects the opposite: the test fails while the attack still works and passes once it is fixed. No AI writes it. It skips itself unless `YOF_ATTACK_TARGET` is set, so your normal test run is unaffected.
@@ -242,7 +260,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - uses: yof-dev/yof/attack@v0.2.0
+      - uses: yof-dev/yof/attack@v0.3.2
         env:
           YOF_ATTACK_A: ${{ secrets.YOF_ATTACK_A }}
           YOF_ATTACK_B: ${{ secrets.YOF_ATTACK_B }}

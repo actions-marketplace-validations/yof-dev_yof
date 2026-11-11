@@ -17,7 +17,7 @@
  */
 import type { Budget } from "./config";
 
-export type As = "a" | "b" | "admin" | "anon";
+export type As = "a" | "b" | "admin" | "viewer" | "anon";
 export type Method = "GET" | "HEAD" | "POST" | "PATCH" | "PUT" | "DELETE";
 export type Purpose = "read" | "login" | "create" | "ai" | "owned" | "cleanup";
 
